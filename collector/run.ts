@@ -1,0 +1,107 @@
+import { createClient } from '@supabase/supabase-js';
+import { fetchGoogleNews, fetchGdelt, fetchSec, fetchPressReleases, titleKey, type RawArticle, type SourceResult } from './sources.ts';
+import { classifyAll, MODEL } from './classify.ts';
+import { MAX_CLASSIFY } from './config.ts';
+
+const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY } = process.env;
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.');
+  process.exit(1);
+}
+const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+const only = (process.env.SOURCES || 'google_news,gdelt,sec_edgar,press_release').split(',');
+
+async function main() {
+  const { data: run, error: runError } = await db.from('collector_runs').insert({}).select().single();
+  if (runError) throw new Error('Cannot write to collector_runs (has the schema been applied?): ' + runError.message);
+  const errors: string[] = [];
+  const stats: Record<string, { requests: number; articles: number; failures: number; new?: number }> = {};
+
+  // 1. Collect
+  const fetchers: [RawArticle['source_type'], () => Promise<SourceResult>][] = [
+    ['google_news', fetchGoogleNews],
+    ['gdelt', fetchGdelt],
+    ['sec_edgar', fetchSec],
+    ['press_release', fetchPressReleases],
+  ];
+  const collected: RawArticle[] = [];
+  for (const [name, fn] of fetchers) {
+    if (!only.includes(name)) continue;
+    const r = await fn();
+    stats[name] = { requests: r.requests, articles: r.articles.length, failures: r.failures.length };
+    for (const f of r.failures) errors.push(`${name} [${f.query}]: ${f.error}`);
+    collected.push(...r.articles);
+    console.log(`${name}: ${r.articles.length} articles from ${r.requests} requests, ${r.failures.length} failed`);
+  }
+
+  // 2. De-duplicate within this run, then insert (existing URLs / titles are skipped by the unique indexes).
+  const seen = new Set<string>();
+  const rows = collected
+    .map(a => ({ ...a, title_key: titleKey(a.title) }))
+    .filter(a => a.title_key.length > 15 && !seen.has(a.url) && !seen.has(a.title_key) && seen.add(a.url) && seen.add(a.title_key));
+
+  let newArticles = 0;
+  for (let i = 0; i < rows.length; i += 200) {
+    const chunk = rows.slice(i, i + 200);
+    const keys = chunk.map(r => r.title_key);
+    const { data: existing } = await db.from('signals').select('title_key').in('title_key', keys);
+    const existingKeys = new Set((existing ?? []).map(e => e.title_key));
+    const fresh = chunk.filter(r => !existingKeys.has(r.title_key));
+    if (!fresh.length) continue;
+    const { data, error } = await db.from('signals').upsert(fresh, { onConflict: 'url', ignoreDuplicates: true }).select('id, source_type');
+    if (error) errors.push('insert: ' + error.message);
+    for (const d of data ?? []) {
+      newArticles++;
+      stats[d.source_type].new = (stats[d.source_type].new ?? 0) + 1;
+    }
+  }
+  console.log(`New articles stored: ${newArticles}`);
+
+  // 3. Classify the newest unclassified articles from the last 7 days.
+  let classified = 0;
+  if (!ANTHROPIC_API_KEY) {
+    errors.push('ANTHROPIC_API_KEY not set; classification skipped');
+  } else {
+    const since = new Date(Date.now() - 7 * 86400000).toISOString();
+    const { data: pending } = await db.from('signals')
+      .select('id, title, publisher, snippet, source_type, published_at')
+      .is('classified_at', null).gte('fetched_at', since)
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .limit(MAX_CLASSIFY);
+    const { results, errors: classifyErrors } = await classifyAll(pending ?? []);
+    errors.push(...classifyErrors.map(e => 'classify: ' + e));
+    const now = new Date().toISOString();
+    for (const [id, c] of results) {
+      const { index: _index, ...fields } = c;
+      const { error } = await db.from('signals').update({
+        ...fields,
+        investor: fields.investor || null,
+        currency: fields.currency || null,
+        deal_status: fields.deal_status || null,
+        company: fields.company || null,
+        fit_area: fields.fit_area || null,
+        classified_at: now,
+        classifier_model: MODEL,
+      }).eq('id', id);
+      if (error) errors.push('update: ' + error.message); else classified++;
+    }
+    console.log(`Classified: ${classified} of ${pending?.length ?? 0}`);
+  }
+
+  const anyArticles = Object.values(stats).some(s => s.articles > 0);
+  await db.from('collector_runs').update({
+    finished_at: new Date().toISOString(),
+    status: !anyArticles ? 'failed' : errors.length ? 'partial' : 'success',
+    source_stats: stats,
+    new_articles: newArticles,
+    classified,
+    errors: errors.slice(0, 200),
+  }).eq('id', run.id);
+  if (errors.length) console.log(`${errors.length} issues:\n` + errors.slice(0, 50).join('\n'));
+  if (!anyArticles) process.exit(1);
+}
+
+main().catch(e => {
+  console.error(e);
+  process.exit(1);
+});
