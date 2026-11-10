@@ -22,10 +22,17 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 const BROWSER_UA = 'Mozilla/5.0 (compatible; RetailIntelligenceRadar/0.1; +https://github.com)';
 
-async function get(url: string, headers: Record<string, string> = {}): Promise<string> {
-  const res = await fetch(url, { headers: { 'User-Agent': BROWSER_UA, ...headers }, signal: AbortSignal.timeout(30000) });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.text();
+async function get(url: string, headers: Record<string, string> = {}, retries = 0): Promise<string> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, { headers: { 'User-Agent': BROWSER_UA, ...headers }, signal: AbortSignal.timeout(30000) });
+    if (res.ok) return res.text();
+    // Back off and retry when rate-limited.
+    if (res.status === 429 && attempt < retries) {
+      await sleep(30000 * (attempt + 1));
+      continue;
+    }
+    throw new Error(`HTTP ${res.status}`);
+  }
 }
 
 const stripHtml = (s: string) =>
@@ -66,13 +73,13 @@ function parseRss(body: string, sourceType: RawArticle['source_type'], query: st
 async function runAll(
   jobs: { url: string; query: string }[],
   handle: (body: string, query: string) => RawArticle[],
-  opts: { delayMs: number; headers?: Record<string, string> }
+  opts: { delayMs: number; headers?: Record<string, string>; retries?: number }
 ): Promise<SourceResult> {
   const result: SourceResult = { articles: [], requests: 0, failures: [] };
   for (const job of jobs) {
     result.requests++;
     try {
-      result.articles.push(...handle(await get(job.url, opts.headers), job.query));
+      result.articles.push(...handle(await get(job.url, opts.headers, opts.retries ?? 0), job.query));
     } catch (e) {
       result.failures.push({ query: job.query, error: (e as Error).message });
     }
@@ -106,7 +113,7 @@ export function fetchGdelt() {
         ? toIso(a.seendate.replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/, '$1-$2-$3T$4:$5:$6Z'))
         : null,
     }));
-  }, { delayMs: 6000 }); // GDELT asks for at most one request every 5 seconds
+  }, { delayMs: 15000, retries: 3 }); // GDELT allows about one request every 5 seconds per IP
 }
 
 export function fetchSec(today = new Date()) {

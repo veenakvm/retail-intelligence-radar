@@ -36,17 +36,16 @@ export function googleNewsFeeds(): { url: string; query: string }[] {
   return feeds;
 }
 
-/** GDELT DOC 2.0 article searches: one per market x signal (last 24h). */
+/** GDELT DOC 2.0 article searches: one combined search per market (last 24h). GDELT rate-limits hard. */
 export function gdeltQueries(): { url: string; query: string }[] {
-  return MARKETS.flatMap(m =>
-    SIGNALS.map(sig => {
-      const q = `(retail OR retailer OR "consumer brand") (${sig.terms.map(t => (t.includes(' ') ? `"${t}"` : t)).join(' OR ')}) sourcecountry:${m.gdeltCountry} sourcelang:english`;
-      return {
-        url: `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}&mode=artlist&format=json&maxrecords=50&timespan=1d&sort=datedesc`,
-        query: `${m.name} · ${sig.name}`,
-      };
-    })
-  );
+  const terms = [...new Set(SIGNALS.flatMap(sig => sig.terms))].map(t => (t.includes(' ') ? `"${t}"` : t)).join(' OR ');
+  return MARKETS.map(m => {
+    const q = `(retail OR retailer) (${terms}) sourcecountry:${m.gdeltCountry} sourcelang:english`;
+    return {
+      url: `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}&mode=artlist&format=json&maxrecords=150&timespan=1d&sort=datedesc`,
+      query: m.name,
+    };
+  });
 }
 
 /** SEC EDGAR full-text search (US filings), last 3 days. */
@@ -69,7 +68,6 @@ export function secQueries(today: Date): { url: string; query: string }[] {
 export const PRESS_FEEDS = [
   { url: 'https://www.prnewswire.com/rss/consumer-products-retail-latest-news/retail-list.rss', query: 'PR Newswire · Retail' },
   { url: 'https://www.prnewswire.com/rss/consumer-products-retail-latest-news/consumer-products-retail-latest-news-list.rss', query: 'PR Newswire · Consumer products & retail' },
-  { url: 'https://www.globenewswire.com/RssFeed/industry/5373-Retail/feedTitle/GlobeNewswire%20-%20Industry%20News%20on%20Retail', query: 'GlobeNewswire · Retail' },
 ];
 
 /** Most articles classified per run (cost control). Override with MAX_CLASSIFY. */
