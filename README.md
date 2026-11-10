@@ -50,7 +50,7 @@ npm run dev                    # web app (needs .env.local with VITE_SUPABASE_UR
 SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... ANTHROPIC_API_KEY=... npm run collect
 ```
 
-Search terms, sectors, markets and feeds are in `collector/config.ts`.
+Search terms, sectors, markets and feeds are in `collector/config.ts`. GDELT is off by default because it rate-limits GitHub's shared runners; include `gdelt` in the workflow's sources input to try it.
 
 ## Data notes
 

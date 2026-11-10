@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       sources:
-        description: 'Comma-separated sources (google_news,gdelt,sec_edgar,press_release)'
+        description: 'Comma-separated sources: google_news, sec_edgar, press_release (gdelt optional; often rate-limited)'
         required: false
-        default: 'google_news,gdelt,sec_edgar,press_release'
+        default: 'google_news,sec_edgar,press_release'
 
 jobs:
   collect:

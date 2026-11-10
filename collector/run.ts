@@ -9,7 +9,8 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   process.exit(1);
 }
 const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-const only = (process.env.SOURCES || 'google_news,gdelt,sec_edgar,press_release').split(',');
+// GDELT is off by default: it rate-limits GitHub's shared runner IPs. Add it via the SOURCES input to try it.
+const only = (process.env.SOURCES || 'google_news,sec_edgar,press_release').split(',');
 
 async function main() {
   const { data: run, error: runError } = await db.from('collector_runs').insert({}).select().single();
