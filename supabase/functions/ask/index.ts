@@ -29,7 +29,9 @@ Deno.serve(async (req) => {
 
   // Act as the signed-in user so row-level security applies (team members only).
   const authHeader = req.headers.get('Authorization') ?? '';
-  const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+  // New Supabase projects use publishable keys; fall back to the key the browser sent.
+  const publicKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY') || req.headers.get('apikey') || '';
+  const db = createClient(Deno.env.get('SUPABASE_URL')!, publicKey, {
     global: { headers: { Authorization: authHeader } },
     auth: { persistSession: false },
   });
