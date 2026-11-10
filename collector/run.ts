@@ -41,19 +41,25 @@ async function main() {
     .map(a => ({ ...a, title_key: titleKey(a.title) }))
     .filter(a => a.title_key.length > 15 && !seen.has(a.url) && !seen.has(a.title_key) && seen.add(a.url) && seen.add(a.title_key));
 
+  // Insert in chunks; rows whose headline is already stored are skipped by the unique title index.
+  // If a chunk still conflicts (same URL under a new headline), fall back to row-by-row inserts.
   let newArticles = 0;
-  for (let i = 0; i < rows.length; i += 200) {
-    const chunk = rows.slice(i, i + 200);
-    const keys = chunk.map(r => r.title_key);
-    const { data: existing } = await db.from('signals').select('title_key').in('title_key', keys);
-    const existingKeys = new Set((existing ?? []).map(e => e.title_key));
-    const fresh = chunk.filter(r => !existingKeys.has(r.title_key));
-    if (!fresh.length) continue;
-    const { data, error } = await db.from('signals').upsert(fresh, { onConflict: 'url', ignoreDuplicates: true }).select('id, source_type');
-    if (error) errors.push('insert: ' + error.message);
-    for (const d of data ?? []) {
+  const countNew = (inserted: { source_type: string }[] | null) => {
+    for (const d of inserted ?? []) {
       newArticles++;
       stats[d.source_type].new = (stats[d.source_type].new ?? 0) + 1;
+    }
+  };
+  for (let i = 0; i < rows.length; i += 100) {
+    const chunk = rows.slice(i, i + 100);
+    const { data, error } = await db.from('signals')
+      .upsert(chunk, { onConflict: 'title_key', ignoreDuplicates: true }).select('source_type');
+    if (!error) { countNew(data); continue; }
+    for (const row of chunk) {
+      const { data: one, error: e } = await db.from('signals')
+        .upsert(row, { onConflict: 'title_key', ignoreDuplicates: true }).select('source_type');
+      if (!e) countNew(one);
+      else if (e.code !== '23505') errors.push('insert: ' + e.message);  // 23505 = already stored under the same URL
     }
   }
   console.log(`New articles stored: ${newArticles}`);
