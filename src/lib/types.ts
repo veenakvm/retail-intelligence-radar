@@ -71,3 +71,27 @@ export const SOURCE_LABELS: Record<Signal['source_type'], string> = {
   sec_edgar: 'SEC EDGAR',
   press_release: 'Press release',
 };
+
+export interface Contact {
+  id: string;
+  company: string;
+  opportunity_id: string | null;
+  full_name: string;
+  role: string;
+  email: string;
+  phone: string;
+  linkedin_url: string;
+  notes: string;
+  source: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OpportunityActivity {
+  id: number;
+  opportunity_id: string;
+  actor_id: string | null;
+  change: Record<string, { from: unknown; to: unknown } | boolean>;
+  created_at: string;
+}

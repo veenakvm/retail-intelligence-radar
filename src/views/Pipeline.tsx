@@ -1,156 +1,347 @@
-import { useEffect, useState } from 'react';
-import { Download, ExternalLink, Plus, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Columns3, Download, ExternalLink, List, Plus, UserPlus, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useQuery, useTeam } from '../lib/data';
-import { downloadCsv, formatDate } from '../lib/format';
-import { PRIORITIES, STAGES, type Opportunity } from '../lib/types';
+import { downloadCsv, formatDate, timeAgo } from '../lib/format';
+import { PRIORITIES, STAGES, type Contact, type Opportunity, type OpportunityActivity, type TeamMember } from '../lib/types';
 import { Empty, ErrorNote, PageHeader, Spinner, useToast } from '../components/ui';
+import { Dialog, SidePanel } from '../components/overlay';
+import { ContactCard, ContactForm, emptyContact } from '../components/contacts';
 
-export default function Pipeline() {
+const PRIORITY_STYLE: Record<string, string> = {
+  High: 'bg-red-50 text-red-700',
+  Medium: 'bg-amber-50 text-amber-700',
+  Low: 'bg-gray-100 text-gray-600',
+};
+const STAGE_ACCENT: Record<string, string> = {
+  Research: 'bg-gray-400',
+  'To validate': 'bg-amber-400',
+  Engaged: 'bg-brand-500',
+  Qualified: 'bg-teal-500',
+  Closed: 'bg-gray-300',
+};
+
+type OppWithCount = Opportunity & { contacts?: { count: number }[] };
+
+export default function Pipeline({ openNew, onNewHandled }: { openNew?: boolean; onNewHandled?: () => void }) {
   const toast = useToast();
   const team = useTeam();
+  const [layout, setLayout] = useState<'board' | 'table'>(() => (localStorage.getItem('pipelineLayout') as 'board' | 'table') || 'board');
   const [q, setQ] = useState('');
-  const [stage, setStage] = useState('');
   const [mine, setMine] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [editingNotes, setEditingNotes] = useState<Opportunity | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [me, setMe] = useState<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+
   useEffect(() => { supabase.auth.getUser().then(({ data }) => setMe(data.user?.id ?? null)); }, []);
+  useEffect(() => { try { localStorage.setItem('pipelineLayout', layout); } catch { /* private mode */ } }, [layout]);
+  useEffect(() => { if (openNew) { setAdding(true); onNewHandled?.(); } }, [openNew, onNewHandled]);
 
-  const { data, error, loading, reload } = useQuery<Opportunity[]>(() =>
-    supabase.from('opportunities').select('*, signal:signals(url, title)').order('updated_at', { ascending: false }), []);
+  const { data, error, loading, reload } = useQuery<OppWithCount[]>(() =>
+    supabase.from('opportunities').select('*, signal:signals(url, title), contacts(count)').order('updated_at', { ascending: false }), []);
 
-  const rows = (data ?? []).filter(o =>
-    (!stage || o.stage === stage) &&
+  const rows = useMemo(() => (data ?? []).filter(o =>
     (!mine || o.owner_id === me) &&
-    (!q || [o.company, o.trigger, o.fit, o.next_action, o.notes].join(' ').toLowerCase().includes(q.toLowerCase())));
+    (!q || [o.company, o.trigger, o.fit, o.next_action, o.notes].join(' ').toLowerCase().includes(q.toLowerCase()))), [data, mine, me, q]);
 
   const memberName = (id: string | null) => {
     const m = team.data?.find(t => t.user_id === id);
-    return m ? m.full_name || m.email : '';
+    return m ? m.full_name || m.email.split('@')[0] : '';
   };
 
-  const update = async (o: Opportunity, patch: Partial<Opportunity>, msg: string) => {
-    const { error: e } = await supabase.from('opportunities').update(patch).eq('id', o.id);
+  const update = async (id: string, patch: Partial<Opportunity>, msg?: string) => {
+    const { error: e } = await supabase.from('opportunities').update(patch).eq('id', id);
     if (e) toast('Could not save: ' + e.message);
-    else { toast(msg); reload(); }
+    else { if (msg) toast(msg); reload(); }
   };
 
   const exportCsv = () => downloadCsv(`opportunity-pipeline-${new Date().toISOString().slice(0, 10)}.csv`,
-    ['Company', 'Trigger', 'Fit', 'Priority', 'Stage', 'Owner', 'Next action', 'Notes', 'Source', 'Updated'],
-    rows.map(o => [o.company, o.trigger, o.fit, o.priority, o.stage, memberName(o.owner_id), o.next_action, o.notes, o.signal?.url, o.updated_at.slice(0, 10)]));
+    ['Company', 'Trigger', 'Fit', 'Priority', 'Stage', 'Owner', 'Next action', 'Notes', 'Contacts', 'Source', 'Updated'],
+    rows.map(o => [o.company, o.trigger, o.fit, o.priority, o.stage, memberName(o.owner_id), o.next_action, o.notes, o.contacts?.[0]?.count ?? 0, o.signal?.url, o.updated_at.slice(0, 10)]));
+
+  const open = rows.find(o => o.id === openId) ?? (data ?? []).find(o => o.id === openId);
+  const contactCount = (o: OppWithCount) => o.contacts?.[0]?.count ?? 0;
 
   return (
     <>
       <PageHeader eyebrow="Sales intelligence" title="Opportunity Pipeline"
-        sub="Shared with the whole team. Turn a market event into a hypothesis, then validate it through discovery."
+        sub="Shared with the whole team. Drag cards between stages; click a card to see its details, contacts and history."
         actions={<>
           <button className="btn-primary" onClick={() => setAdding(true)}><Plus className="h-3.5 w-3.5" /> Add opportunity</button>
           <button className="btn" onClick={exportCsv} disabled={!rows.length}><Download className="h-3.5 w-3.5" /> Export CSV</button>
         </>} />
-      <div className="card mb-3 flex flex-wrap gap-2 p-3">
+
+      <div className="card mb-3 flex flex-wrap items-center gap-2 p-3">
         <input className="field min-w-[200px] flex-1" value={q} onChange={e => setQ(e.target.value)} placeholder="Search account, trigger, notes…" />
-        <select className="field w-auto" value={stage} onChange={e => setStage(e.target.value)} aria-label="Stage">
-          <option value="">All stages</option>{STAGES.map(s => <option key={s}>{s}</option>)}
-        </select>
         <label className="flex items-center gap-1.5 text-xs text-gray-600">
           <input type="checkbox" className="accent-brand-500" checked={mine} onChange={e => setMine(e.target.checked)} /> Only mine
         </label>
+        <div className="ml-auto flex rounded-lg border border-line p-0.5" role="group" aria-label="Layout">
+          {(['board', 'table'] as const).map(l => (
+            <button key={l} onClick={() => setLayout(l)} aria-pressed={layout === l}
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold ${layout === l ? 'bg-brand-50 text-brand-600' : 'text-gray-500 hover:text-gray-800'}`}>
+              {l === 'board' ? <Columns3 className="h-3.5 w-3.5" /> : <List className="h-3.5 w-3.5" />} {l === 'board' ? 'Board' : 'Table'}
+            </button>
+          ))}
+        </div>
       </div>
+
       {error && <ErrorNote message={error} />}
-      <div className="card overflow-x-auto">
-        <table className="w-full min-w-[980px]">
-          <thead>
-            <tr>
-              <th className="th">Account</th><th className="th">Trigger / hypothesis</th><th className="th">Potential AlgoShack fit</th>
-              <th className="th">Priority</th><th className="th">Stage</th><th className="th">Owner</th><th className="th">Next action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? <tr><td colSpan={7}><Spinner /></td></tr>
-              : rows.length === 0 ? <tr><td colSpan={7}><Empty>No opportunities found. Add one, or use “Pipeline” on a signal in the feed.</Empty></td></tr>
-              : rows.map(o => (
-                <tr key={o.id}>
+      {loading ? <Spinner /> : rows.length === 0 ? (
+        <div className="card"><Empty>No opportunities yet. Add one, or use “Pipeline” on a signal in the Intelligence Feed.</Empty></div>
+      ) : layout === 'board' ? (
+        <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+          <div className="grid min-w-[1050px] grid-cols-5 gap-3">
+            {STAGES.map(stage => {
+              const items = rows.filter(o => o.stage === stage);
+              return (
+                <section key={stage}
+                  className={`flex min-h-[200px] flex-col rounded-xl bg-[#eef2f8] p-2 transition-colors ${dragId ? 'outline-dashed outline-1 outline-gray-300' : ''}`}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => {
+                    e.preventDefault();
+                    const id = e.dataTransfer.getData('text/plain');
+                    const o = rows.find(r => r.id === id);
+                    setDragId(null);
+                    if (o && o.stage !== stage) update(id, { stage }, `${o.company} moved to ${stage}`);
+                  }}
+                  aria-label={`${stage} column`}
+                >
+                  <h3 className="flex items-center gap-2 px-1.5 pb-2 pt-1 text-xs font-bold text-gray-700">
+                    <span className={`h-2 w-2 rounded-full ${STAGE_ACCENT[stage]}`} /> {stage}
+                    <span className="ml-auto rounded-full bg-white px-1.5 text-[10px] font-semibold text-gray-500">{items.length}</span>
+                  </h3>
+                  <div className="flex-1 space-y-2">
+                    {items.map(o => (
+                      <article key={o.id} draggable
+                        onDragStart={e => { e.dataTransfer.setData('text/plain', o.id); setDragId(o.id); }}
+                        onDragEnd={() => setDragId(null)}
+                        onClick={() => setOpenId(o.id)}
+                        onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setOpenId(o.id)}
+                        tabIndex={0}
+                        className={`cursor-pointer rounded-lg border border-line bg-white p-3 shadow-[0_1px_2px_rgb(15_23_42/0.05)] hover:border-brand-500 ${dragId === o.id ? 'opacity-50' : ''}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="text-[13px] font-bold leading-snug">{o.company}</div>
+                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${PRIORITY_STYLE[o.priority]}`}>{o.priority}</span>
+                        </div>
+                        {o.trigger && <p className="mt-1 line-clamp-2 text-[11px] text-gray-600">{o.trigger}</p>}
+                        {o.next_action && <p className="mt-2 line-clamp-2 text-[11px] text-gray-500"><span className="font-semibold text-gray-600">Next:</span> {o.next_action}</p>}
+                        <div className="mt-2 flex items-center gap-2 text-[10px] text-gray-500">
+                          <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {contactCount(o)}</span>
+                          <span className="truncate">{memberName(o.owner_id) || 'Unassigned'}</span>
+                          <span className="ml-auto shrink-0">{timeAgo(o.updated_at)}</span>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="card overflow-x-auto">
+          <table className="w-full min-w-[980px]">
+            <thead>
+              <tr>
+                <th className="th">Account</th><th className="th">Trigger / hypothesis</th><th className="th">Contacts</th>
+                <th className="th">Priority</th><th className="th">Stage</th><th className="th">Owner</th><th className="th">Next action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(o => (
+                <tr key={o.id} className="hover:bg-[#f8fafc]">
                   <td className="td">
-                    <div className="font-bold">{o.company}</div>
+                    <button className="text-left font-bold hover:text-brand-600" onClick={() => setOpenId(o.id)}>{o.company}</button>
                     <div className="text-[11px] text-gray-500">Updated {formatDate(o.updated_at)}</div>
-                    <button className="mt-1 text-[11px] text-brand-600 hover:underline" onClick={() => setEditingNotes(o)}>
-                      {o.notes ? 'Notes' : 'Add notes'}
-                    </button>
                   </td>
-                  <td className="td max-w-[260px]">
-                    {o.trigger}
-                    {o.signal && (
-                      <a href={o.signal.url} target="_blank" rel="noreferrer" className="mt-1 flex items-center gap-1 text-[11px] text-brand-600 hover:underline">
-                        Source <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-                  </td>
-                  <td className="td max-w-[200px]">{o.fit || '—'}</td>
-                  <td className="td">
-                    <select className="field py-1 text-xs" value={o.priority} onChange={e => update(o, { priority: e.target.value as Opportunity['priority'] }, 'Priority updated')} aria-label="Priority">
-                      {PRIORITIES.map(p => <option key={p}>{p}</option>)}
-                    </select>
-                  </td>
-                  <td className="td">
-                    <select className="field py-1 text-xs" value={o.stage} onChange={e => update(o, { stage: e.target.value as Opportunity['stage'] }, 'Stage updated')} aria-label="Stage">
-                      {STAGES.map(s => <option key={s}>{s}</option>)}
-                    </select>
-                  </td>
-                  <td className="td">
-                    <select className="field py-1 text-xs" value={o.owner_id ?? ''} onChange={e => update(o, { owner_id: e.target.value || null }, 'Owner updated')} aria-label="Owner">
-                      <option value="">Unassigned</option>
-                      {(team.data ?? []).map(m => <option key={m.user_id} value={m.user_id}>{m.full_name || m.email}</option>)}
-                    </select>
-                  </td>
-                  <td className="td max-w-[220px]">
-                    <input className="field py-1 text-xs" defaultValue={o.next_action}
-                      onBlur={e => e.target.value !== o.next_action && update(o, { next_action: e.target.value }, 'Next action saved')} aria-label="Next action" />
-                  </td>
+                  <td className="td max-w-[280px]">{o.trigger}{o.fit && <div className="mt-1 text-[11px] text-gray-500">Fit: {o.fit}</div>}</td>
+                  <td className="td"><button className="flex items-center gap-1 text-brand-600 hover:underline" onClick={() => setOpenId(o.id)}><Users className="h-3.5 w-3.5" />{contactCount(o)}</button></td>
+                  <td className="td"><PrioritySelect value={o.priority} onChange={v => update(o.id, { priority: v }, 'Priority updated')} /></td>
+                  <td className="td"><StageSelect value={o.stage} onChange={v => update(o.id, { stage: v }, 'Stage updated')} /></td>
+                  <td className="td"><OwnerSelect team={team.data ?? []} value={o.owner_id} onChange={v => update(o.id, { owner_id: v }, 'Owner updated')} /></td>
+                  <td className="td max-w-[220px]">{o.next_action || '—'}</td>
                 </tr>
               ))}
-          </tbody>
-        </table>
-      </div>
+            </tbody>
+          </table>
+        </div>
+      )}
       <p className="mt-3 text-[11px] text-[#6c788a]">
         Fit and priority are hypotheses. Validate need, budget, authority, timing and procurement before calling an opportunity sales-qualified. Every change is recorded with who made it.
       </p>
 
-      {adding && <AddDialog onClose={() => setAdding(false)} onSaved={() => { setAdding(false); toast('Opportunity added'); reload(); }} />}
-      {editingNotes && (
-        <NotesDialog opp={editingNotes} onClose={() => setEditingNotes(null)}
-          onSave={async notes => { await update(editingNotes, { notes }, 'Notes saved'); setEditingNotes(null); }} />
+      {adding && (
+        <AddOpportunityDialog onClose={() => setAdding(false)}
+          onSaved={id => { setAdding(false); toast('Opportunity added'); reload(); setOpenId(id); }} />
+      )}
+      {open && (
+        <OpportunityPanel opp={open} team={team.data ?? []} memberName={memberName}
+          onClose={() => setOpenId(null)} onChange={reload}
+          onUpdate={(patch, msg) => update(open.id, patch, msg)} />
       )}
     </>
   );
 }
 
-function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function PrioritySelect({ value, onChange }: { value: Opportunity['priority']; onChange: (v: Opportunity['priority']) => void }) {
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-navy/40 p-4" onClick={onClose}>
-      <div className="card w-full max-w-lg p-5" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={title}>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-bold">{title}</h2>
-          <button onClick={onClose} className="rounded p-1 text-gray-500 hover:bg-gray-100" aria-label="Close"><X className="h-4 w-4" /></button>
-        </div>
-        {children}
-      </div>
-    </div>
+    <select className="field py-1 text-xs" value={value} onChange={e => onChange(e.target.value as Opportunity['priority'])} aria-label="Priority">
+      {PRIORITIES.map(p => <option key={p}>{p}</option>)}
+    </select>
+  );
+}
+function StageSelect({ value, onChange }: { value: Opportunity['stage']; onChange: (v: Opportunity['stage']) => void }) {
+  return (
+    <select className="field py-1 text-xs" value={value} onChange={e => onChange(e.target.value as Opportunity['stage'])} aria-label="Stage">
+      {STAGES.map(s => <option key={s}>{s}</option>)}
+    </select>
+  );
+}
+function OwnerSelect({ team, value, onChange }: { team: TeamMember[]; value: string | null; onChange: (v: string | null) => void }) {
+  return (
+    <select className="field py-1 text-xs" value={value ?? ''} onChange={e => onChange(e.target.value || null)} aria-label="Owner">
+      <option value="">Unassigned</option>
+      {team.map(m => <option key={m.user_id} value={m.user_id}>{m.full_name || m.email}</option>)}
+    </select>
   );
 }
 
-function AddDialog({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+/** Everything about one opportunity: editable details, contacts and change history. */
+function OpportunityPanel({ opp, team, memberName, onClose, onChange, onUpdate }: {
+  opp: OppWithCount; team: TeamMember[]; memberName: (id: string | null) => string;
+  onClose: () => void; onChange: () => void; onUpdate: (patch: Partial<Opportunity>, msg?: string) => void;
+}) {
+  const toast = useToast();
+  const [tab, setTab] = useState<'details' | 'contacts' | 'history'>('details');
+  const [form, setForm] = useState({ trigger: opp.trigger, fit: opp.fit, next_action: opp.next_action, notes: opp.notes });
+  const [addingContact, setAddingContact] = useState(false);
+  const [editing, setEditing] = useState<Contact | null>(null);
+  const contacts = useQuery<Contact[]>(() =>
+    supabase.from('contacts').select('*').or(`opportunity_id.eq.${opp.id},company.ilike."${opp.company.replace(/["\\]/g, '')}"`).order('created_at'), [opp.id, opp.company]);
+  const history = useQuery<OpportunityActivity[]>(() =>
+    supabase.from('opportunity_activity').select('*').eq('opportunity_id', opp.id).order('created_at', { ascending: false }).limit(50), [opp.id, opp.updated_at]);
+
+  useEffect(() => { setForm({ trigger: opp.trigger, fit: opp.fit, next_action: opp.next_action, notes: opp.notes }); }, [opp.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const dirty = form.trigger !== opp.trigger || form.fit !== opp.fit || form.next_action !== opp.next_action || form.notes !== opp.notes;
+
+  const removeContact = async (c: Contact) => {
+    if (!confirm(`Delete ${c.full_name}?`)) return;
+    const { error } = await supabase.from('contacts').delete().eq('id', c.id);
+    if (error) toast('Could not delete: ' + error.message); else { toast('Contact deleted'); contacts.reload(); onChange(); }
+  };
+
+  const tabs = [
+    { id: 'details' as const, label: 'Details' },
+    { id: 'contacts' as const, label: `Contacts (${contacts.data?.length ?? opp.contacts?.[0]?.count ?? 0})` },
+    { id: 'history' as const, label: 'History' },
+  ];
+
+  return (
+    <SidePanel title={opp.company} onClose={onClose}
+      subtitle={<>Added {formatDate(opp.created_at)} · updated {timeAgo(opp.updated_at)}{opp.created_by ? ` · by ${memberName(opp.created_by)}` : ''}</>}>
+      <div className="mb-4 grid grid-cols-3 gap-2">
+        <div><label className="label">Stage</label><StageSelect value={opp.stage} onChange={v => onUpdate({ stage: v }, 'Stage updated')} /></div>
+        <div><label className="label">Priority</label><PrioritySelect value={opp.priority} onChange={v => onUpdate({ priority: v }, 'Priority updated')} /></div>
+        <div><label className="label">Owner</label><OwnerSelect team={team} value={opp.owner_id} onChange={v => onUpdate({ owner_id: v }, 'Owner updated')} /></div>
+      </div>
+
+      <div className="mb-4 flex gap-1 border-b border-line" role="tablist">
+        {tabs.map(t => (
+          <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
+            className={`-mb-px border-b-2 px-3 py-2 text-xs font-semibold ${tab === t.id ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'details' && (
+        <form className="space-y-3" onSubmit={e => { e.preventDefault(); onUpdate(form, 'Saved'); }}>
+          <div><label className="label">Trigger / hypothesis</label><textarea className="field min-h-[64px]" value={form.trigger} onChange={e => setForm({ ...form, trigger: e.target.value })} /></div>
+          {opp.signal && (
+            <a href={opp.signal.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-brand-600 hover:underline">
+              Source article <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+          <div><label className="label">Potential AlgoShack fit</label><input className="field" value={form.fit} onChange={e => setForm({ ...form, fit: e.target.value })} /></div>
+          <div><label className="label">Next action</label><input className="field" value={form.next_action} onChange={e => setForm({ ...form, next_action: e.target.value })} /></div>
+          <div><label className="label">Notes</label><textarea className="field min-h-[140px]" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Discovery notes, timing, objections…" /></div>
+          <div className="flex justify-end gap-2">
+            <button type="button" className="btn" disabled={!dirty} onClick={() => setForm({ trigger: opp.trigger, fit: opp.fit, next_action: opp.next_action, notes: opp.notes })}>Discard</button>
+            <button className="btn-primary" disabled={!dirty}>Save changes</button>
+          </div>
+        </form>
+      )}
+
+      {tab === 'contacts' && (
+        <div className="space-y-2">
+          {addingContact || editing ? (
+            <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-3">
+              <ContactForm
+                initial={editing ?? emptyContact(opp.company, opp.id)}
+                contactId={editing?.id}
+                lockCompany
+                onCancel={() => { setAddingContact(false); setEditing(null); }}
+                onSaved={c => { toast(editing ? 'Contact saved' : `${c.full_name} added`); setAddingContact(false); setEditing(null); contacts.reload(); onChange(); }}
+              />
+            </div>
+          ) : (
+            <button className="btn-primary w-full" onClick={() => setAddingContact(true)}><UserPlus className="h-3.5 w-3.5" /> Add contact at {opp.company}</button>
+          )}
+          {contacts.error && <ErrorNote message={contacts.error.includes('contacts') ? 'Contacts are not set up yet: run supabase/migrations/002_contacts.sql in Supabase.' : contacts.error} />}
+          {contacts.loading ? <Spinner /> : (contacts.data ?? []).length === 0 && !addingContact ? (
+            <p className="py-4 text-center text-xs text-gray-500">No contacts yet. Add the people you are talking to, or plan to reach.</p>
+          ) : (contacts.data ?? []).map(c => (
+            <ContactCard key={c.id} contact={c} onEdit={() => setEditing(c)} onDelete={() => removeContact(c)} />
+          ))}
+        </div>
+      )}
+
+      {tab === 'history' && (
+        history.loading ? <Spinner /> : (
+          <ol className="space-y-3">
+            {(history.data ?? []).map(h => (
+              <li key={h.id} className="border-l-2 border-line pl-3 text-xs">
+                <div className="text-gray-500">{formatDate(h.created_at)} {new Date(h.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} · {memberName(h.actor_id) || 'System'}</div>
+                <div className="mt-0.5 text-gray-800">{describeChange(h.change, memberName)}</div>
+              </li>
+            ))}
+            {(history.data ?? []).length === 0 && <p className="text-xs text-gray-500">No changes recorded yet.</p>}
+          </ol>
+        )
+      )}
+    </SidePanel>
+  );
+}
+
+const FIELD_LABELS: Record<string, string> = {
+  stage: 'Stage', priority: 'Priority', owner_id: 'Owner', next_action: 'Next action', notes: 'Notes', trigger: 'Trigger', fit: 'Fit', company: 'Company',
+};
+function describeChange(change: OpportunityActivity['change'], memberName: (id: string | null) => string): string {
+  if ('created' in change) return 'Created the opportunity';
+  const parts = Object.entries(change).filter(([k]) => FIELD_LABELS[k]).map(([k, v]) => {
+    const to = (v as { to: unknown }).to;
+    if (k === 'owner_id') return `Owner → ${memberName(to as string) || 'Unassigned'}`;
+    if (k === 'notes') return 'Edited notes';
+    return `${FIELD_LABELS[k]} → ${String(to ?? '')}`;
+  });
+  return parts.join(' · ') || 'Updated';
+}
+
+export function AddOpportunityDialog({ onClose, onSaved }: { onClose: () => void; onSaved: (id: string) => void }) {
   const [f, setF] = useState({ company: '', trigger: '', fit: '', priority: 'Medium', next_action: 'Research account and map decision-maker' });
   const [err, setErr] = useState('');
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from('opportunities').insert(f);
-    if (error) setErr(error.message); else onSaved();
+    const { data, error } = await supabase.from('opportunities').insert({ ...f, company: f.company.trim() }).select('id').single();
+    if (error) setErr(error.message); else onSaved(data.id);
   };
   return (
     <Dialog title="Add opportunity" onClose={onClose}>
       <form onSubmit={save} className="space-y-3">
-        <div><label className="label">Company / account *</label><input className="field" required value={f.company} onChange={e => setF({ ...f, company: e.target.value })} /></div>
+        <div><label className="label">Company / account *</label><input className="field" required autoFocus value={f.company} onChange={e => setF({ ...f, company: e.target.value })} /></div>
         <div><label className="label">Business trigger</label><input className="field" value={f.trigger} onChange={e => setF({ ...f, trigger: e.target.value })} placeholder="e.g. Six-city store expansion" /></div>
         <div><label className="label">Potential AlgoShack fit</label><input className="field" value={f.fit} onChange={e => setF({ ...f, fit: e.target.value })} placeholder="e.g. POS and omnichannel testing" /></div>
         <div className="grid grid-cols-2 gap-3">
@@ -159,24 +350,12 @@ function AddDialog({ onClose, onSaved }: { onClose: () => void; onSaved: () => v
           <div><label className="label">Next action</label><input className="field" value={f.next_action} onChange={e => setF({ ...f, next_action: e.target.value })} /></div>
         </div>
         {err && <ErrorNote message={err} />}
+        <p className="text-[11px] text-gray-500">After saving, the opportunity opens so you can add contacts straight away.</p>
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" className="btn" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn-primary">Add</button>
+          <button type="submit" className="btn-primary">Add opportunity</button>
         </div>
       </form>
-    </Dialog>
-  );
-}
-
-function NotesDialog({ opp, onClose, onSave }: { opp: Opportunity; onClose: () => void; onSave: (notes: string) => void }) {
-  const [notes, setNotes] = useState(opp.notes);
-  return (
-    <Dialog title={`Notes: ${opp.company}`} onClose={onClose}>
-      <textarea className="field min-h-[160px]" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Discovery notes, contacts, timing, objections…" />
-      <div className="mt-3 flex justify-end gap-2">
-        <button className="btn" onClick={onClose}>Cancel</button>
-        <button className="btn-primary" onClick={() => onSave(notes)}>Save notes</button>
-      </div>
     </Dialog>
   );
 }
