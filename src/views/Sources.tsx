@@ -28,7 +28,6 @@ export default function Sources() {
 
   const list = runs.data ?? [];
   const lastOk = list.find(r => r.status === 'success' || r.status === 'partial');
-  const latest = list[0];
   const fresh = lastOk && Date.now() - new Date(lastOk.started_at).getTime() < 36 * 3600000;
 
   return (
