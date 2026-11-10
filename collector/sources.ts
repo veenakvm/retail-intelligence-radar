@@ -22,9 +22,15 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 const BROWSER_UA = 'Mozilla/5.0 (compatible; RetailIntelligenceRadar/0.1; +https://github.com)';
 
-async function get(url: string, headers: Record<string, string> = {}, retries = 0): Promise<string> {
+async function get(url: string, headers: Record<string, string> = {}, retries = 0, timeoutMs = 30000): Promise<string> {
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch(url, { headers: { 'User-Agent': BROWSER_UA, ...headers }, signal: AbortSignal.timeout(30000) });
+    let res: Response;
+    try {
+      res = await fetch(url, { headers: { 'User-Agent': BROWSER_UA, ...headers }, signal: AbortSignal.timeout(timeoutMs) });
+    } catch (e) {
+      const cause = (e as { cause?: { code?: string; message?: string } }).cause;
+      throw new Error(`${(e as Error).message}${cause ? ` (${cause.code ?? cause.message})` : ''}`);
+    }
     if (res.ok) return res.text();
     // Back off and retry when rate-limited.
     if (res.status === 429 && attempt < retries) {
@@ -73,13 +79,13 @@ function parseRss(body: string, sourceType: RawArticle['source_type'], query: st
 async function runAll(
   jobs: { url: string; query: string }[],
   handle: (body: string, query: string) => RawArticle[],
-  opts: { delayMs: number; headers?: Record<string, string>; retries?: number }
+  opts: { delayMs: number; headers?: Record<string, string>; retries?: number; timeoutMs?: number }
 ): Promise<SourceResult> {
   const result: SourceResult = { articles: [], requests: 0, failures: [] };
   for (const job of jobs) {
     result.requests++;
     try {
-      result.articles.push(...handle(await get(job.url, opts.headers, opts.retries ?? 0), job.query));
+      result.articles.push(...handle(await get(job.url, opts.headers, opts.retries ?? 0, opts.timeoutMs), job.query));
     } catch (e) {
       result.failures.push({ query: job.query, error: (e as Error).message });
     }
@@ -113,7 +119,7 @@ export function fetchGdelt() {
         ? toIso(a.seendate.replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/, '$1-$2-$3T$4:$5:$6Z'))
         : null,
     }));
-  }, { delayMs: 15000, retries: 3 }); // GDELT allows about one request every 5 seconds per IP
+  }, { delayMs: 15000, retries: 3, timeoutMs: 90000 }); // GDELT allows about one request every 5 seconds per IP
 }
 
 export function fetchSec(today = new Date()) {
