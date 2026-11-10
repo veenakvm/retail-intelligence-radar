@@ -20,6 +20,6 @@ jobs:
           PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          supabase secrets set --project-ref "$PROJECT_REF" ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY"
+          supabase secrets set --yes --project-ref "$PROJECT_REF" ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY"
           # The function checks the signed-in user itself (works with new Supabase keys).
-          supabase functions deploy ask --project-ref "$PROJECT_REF" --no-verify-jwt
+          supabase functions deploy ask --yes --project-ref "$PROJECT_REF" --no-verify-jwt
