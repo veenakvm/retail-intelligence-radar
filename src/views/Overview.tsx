@@ -15,11 +15,12 @@ export default function Overview({ go }: { go: (v: View) => void }) {
   const opps = useQuery<Opportunity[]>(() =>
     supabase.from('opportunities').select('*').neq('stage', 'Closed').order('updated_at', { ascending: false }).limit(6), []);
   const run = useQuery<CollectorRun[]>(() =>
-    supabase.from('collector_runs').select('*').order('started_at', { ascending: false }).limit(1), []);
+    supabase.from('collector_runs').select('*').order('started_at', { ascending: false }).limit(10), []);
 
   const list = signals.data ?? [];
   const count = (t: string) => list.filter(s => s.signal_type === t).length;
-  const last = run.data?.[0];
+  // Report the most recent full collection; manual single-source test runs are skipped.
+  const last = run.data?.find(r => r.status !== 'running' && Object.keys(r.source_stats ?? {}).length > 1) ?? run.data?.[0];
 
   return (
     <>
@@ -28,10 +29,16 @@ export default function Overview({ go }: { go: (v: View) => void }) {
         title="Retail Intelligence Radar"
         sub="Investment, expansion, acquisition and technology signals from public sources, India and USA, last 30 days."
       />
-      {last && (
-        <div className={`mb-4 rounded-lg border px-3 py-2 text-xs ${last.status === 'success' ? 'border-teal-500/30 bg-teal-50 text-teal-700' : 'border-amber-300 bg-amber-50 text-amber-800'}`}>
-          Data last collected {timeAgo(last.finished_at ?? last.started_at)}: {last.new_articles} new articles, {last.classified} classified
-          {last.status !== 'success' && <> · run status <b>{last.status}</b>, see <button className="underline" onClick={() => go('sources')}>Data sources</button></>}
+      {run.loading ? null : last ? (
+        <div className={`mb-4 flex flex-wrap items-center gap-x-2 rounded-lg border px-3 py-2 text-xs ${last.status === 'failed' ? 'border-red-200 bg-red-50 text-red-700' : last.status === 'partial' ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-teal-500/30 bg-teal-50 text-teal-700'}`}>
+          <b>Data last collected {timeAgo(last.finished_at ?? last.started_at)}</b>
+          <span>{last.new_articles} new articles, {last.classified} classified.</span>
+          {last.status !== 'success' && <span>Some sources had problems: <button className="underline" onClick={() => go('sources')}>see Data Sources</button>.</span>}
+          <span className="ml-auto opacity-80">Next collection: daily around 6:45 am IST</span>
+        </div>
+      ) : (
+        <div className="mb-4 rounded-lg border border-line bg-white px-3 py-2 text-xs text-gray-600">
+          No data collected yet. The first collection runs daily around 6:45 am IST.
         </div>
       )}
       {signals.error && <ErrorNote message={signals.error} />}

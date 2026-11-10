@@ -43,14 +43,15 @@ export default function Sources() {
             <Check ok={!runs.error}>Supabase database <span className="text-gray-500">({SUPABASE_URL.replace('https://', '')})</span></Check>
             <Check ok={!!fresh} warn={!!lastOk && !fresh}>Daily collector (GitHub Actions): {lastOk ? `last ran ${timeAgo(lastOk.started_at)}` : 'has not run yet'}</Check>
             <Check ok={(classified.data ?? []).length > 0}>AI classification (Claude API key in GitHub secrets)</Check>
-            <Check ok={!!latest && (latest.source_stats.sec_edgar?.requests ?? 0) > 0} warn>SEC EDGAR contact header (SEC_USER_AGENT)</Check>
+            <Check ok={list.some(r => (r.source_stats?.sec_edgar?.articles ?? 0) > 0)} warn>SEC EDGAR contact header (SEC_USER_AGENT)</Check>
             <Check ok={false} warn>AI assistant: open “AI Research Assistant” and ask a question to test it</Check>
           </ul>
         </div>
         <div className="card p-4">
           <h3 className="mb-2 text-sm font-bold">Sources</h3>
           {SOURCES.map(s => {
-            const st = latest?.source_stats?.[s.key];
+            // Latest run that included this source (manual tests may cover only one).
+            const st = list.find(r => r.source_stats?.[s.key])?.source_stats?.[s.key];
             return (
               <div key={s.key} className="border-t border-line py-2 first:border-t-0">
                 <div className="flex items-center justify-between text-xs font-semibold">
