@@ -139,7 +139,7 @@ async function main() {
   }
   if (normalised) console.log(`Normalised ${normalised} older fit labels to the service-line list`);
 
-  const anyArticles = Object.keys(stats).length === 0 ? classified > 0 : Object.values(stats).some(s => s.articles > 0);
+  const anyArticles = Object.keys(stats).length === 0 ? true : Object.values(stats).some(s => s.articles > 0);
   await db.from('collector_runs').update({
     finished_at: new Date().toISOString(),
     status: !anyArticles ? 'failed' : errors.length ? 'partial' : 'success',
