@@ -104,7 +104,8 @@ export const PRESS_FEEDS = [
  * (for general business feeds); retail-specific feeds keep everything.
  */
 // Tested from GitHub Actions on 11 Nov 2026. Not usable (block automated readers or have no feed):
-// Business Standard, FashionNetwork, Chain Store Age, Retail TouchPoints, Entrackr, Indian Retailer.
+// Business Standard, FashionNetwork, Chain Store Age, Retail TouchPoints, Entrackr, Indian Retailer,
+// Financial Express, The Statesman, The Tribune, Deccan Herald, Free Press Journal.
 export const NEWS_FEEDS: { url: string; query: string; filter?: boolean }[] = [
   // India: Economic Times
   { url: 'https://retail.economictimes.indiatimes.com/rss/topstories', query: 'ET Retail · Top stories' },
@@ -122,14 +123,8 @@ export const NEWS_FEEDS: { url: string; query: string; filter?: boolean }[] = [
   { url: 'https://www.thehindu.com/business/feeder/default.rss', query: 'The Hindu · Business', filter: true },
   { url: 'https://timesofindia.indiatimes.com/rssfeeds/1898055.cms', query: 'Times of India · Business', filter: true },
   { url: 'https://www.hindustantimes.com/feeds/rss/business/rssfeed.xml', query: 'Hindustan Times · Business', filter: true },
-  { url: 'https://www.financialexpress.com/business/industry/feed/', query: 'Financial Express · Industry', filter: true },
-  { url: 'https://www.financialexpress.com/business/sme/feed/', query: 'Financial Express · SME', filter: true },
-  { url: 'https://www.deccanherald.com/business/rss', query: 'Deccan Herald · Business', filter: true },
   { url: 'https://www.newindianexpress.com/business/rssfeed/', query: 'New Indian Express · Business', filter: true },
   { url: 'https://telanganatoday.com/business/feed', query: 'Telangana Today · Business', filter: true },
-  { url: 'https://www.thestatesman.com/business/feed', query: 'The Statesman · Business', filter: true },
-  { url: 'https://www.freepressjournal.in/business/rss', query: 'Free Press Journal · Business', filter: true },
-  { url: 'https://www.tribuneindia.com/rss/feed?catId=46', query: 'The Tribune · Business', filter: true },
   // USA: retail trade media
   { url: 'https://www.retaildive.com/feeds/news/', query: 'Retail Dive' },
   { url: 'https://www.grocerydive.com/feeds/news/', query: 'Grocery Dive' },
@@ -139,9 +134,11 @@ export const NEWS_FEEDS: { url: string; query: string; filter?: boolean }[] = [
 
 /** Headline keywords that keep an article from a general business feed. */
 export const RETAIL_KEYWORDS = [
-  'retail', 'retailer', 'store', 'stores', 'outlet', 'mall', 'brand', 'd2c', 'dtc', 'e-commerce', 'ecommerce', 'quick commerce',
-  'q-commerce', 'grocery', 'supermarket', 'hypermarket', 'jewel', 'gold', 'apparel', 'fashion', 'clothing', 'footwear', 'beauty',
-  'cosmetic', 'skincare', 'personal care', 'electronics', 'consumer', 'fmcg', 'omnichannel', 'marketplace', 'shopping',
+  // Deliberately excludes 'gold' and plain 'consumer': they mostly match daily price and inflation stories.
+  'retail', 'retailer', 'store', 'stores', 'showroom', 'outlet', 'mall', 'brand', 'd2c', 'dtc', 'e-commerce', 'ecommerce',
+  'quick commerce', 'q-commerce', 'grocery', 'supermarket', 'hypermarket', 'jewel', 'apparel', 'fashion', 'clothing', 'footwear',
+  'beauty', 'cosmetic', 'skincare', 'personal care', 'electronics', 'consumer brand', 'consumer durables', 'fmcg', 'omnichannel',
+  'marketplace', 'shopping',
 ];
 
 /** Most articles classified per run (cost control). Override with MAX_CLASSIFY. */
