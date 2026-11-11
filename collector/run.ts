@@ -122,7 +122,8 @@ async function main() {
     console.log(`Classified: ${classified} of ${pending?.length ?? 0}`);
   }
 
-  const anyArticles = Object.values(stats).some(s => s.articles > 0);
+  // A re-scoring run with no sources selected collects nothing on purpose.
+  const anyArticles = Object.keys(stats).length === 0 ? classified > 0 : Object.values(stats).some(s => s.articles > 0);
   await db.from('collector_runs').update({
     finished_at: new Date().toISOString(),
     status: !anyArticles ? 'failed' : errors.length ? 'partial' : 'success',
