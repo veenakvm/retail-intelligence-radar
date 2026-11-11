@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { Activity, BarChart3, BookOpen, ChevronDown, Contact as ContactIcon, Database, LayoutDashboard, LogOut, Menu, Plus, Sparkles, Target, TrendingUp, X, type LucideIcon } from 'lucide-react';
+import { Activity, BarChart3, BookOpen, ChevronDown, Megaphone, Contact as ContactIcon, Database, LayoutDashboard, LogOut, Menu, Plus, Sparkles, Target, TrendingUp, X, type LucideIcon } from 'lucide-react';
 import { isConfigured, supabase } from './lib/supabase';
 import { ToastProvider, Spinner } from './components/ui';
 import Login, { SetPassword } from './views/Login';
@@ -12,8 +12,9 @@ import Assistant from './views/Assistant';
 import Sources from './views/Sources';
 import Contacts from './views/Contacts';
 import ServiceLines from './views/ServiceLines';
+import Playbook from './views/Playbook';
 
-export type View = 'home' | 'feed' | 'invest' | 'pipeline' | 'contacts' | 'services' | 'assistant' | 'sources';
+export type View = 'home' | 'feed' | 'invest' | 'pipeline' | 'contacts' | 'services' | 'playbook' | 'assistant' | 'sources';
 
 const NAV: { id: View; label: string; icon: LucideIcon }[] = [
   { id: 'home', label: 'Overview', icon: LayoutDashboard },
@@ -22,6 +23,7 @@ const NAV: { id: View; label: string; icon: LucideIcon }[] = [
   { id: 'pipeline', label: 'Opportunity Pipeline', icon: Target },
   { id: 'contacts', label: 'Contacts', icon: ContactIcon },
   { id: 'services', label: 'Service Lines', icon: BookOpen },
+  { id: 'playbook', label: 'Outreach Playbook', icon: Megaphone },
   { id: 'assistant', label: 'AI Research Assistant', icon: Sparkles },
   { id: 'sources', label: 'Data Sources & Health', icon: Database },
 ];
@@ -156,6 +158,7 @@ export default function App() {
             {view === 'invest' && <Investments />}
             {view === 'pipeline' && <Pipeline openNew={pendingNew === 'pipeline'} onNewHandled={clearPending} />}
             {view === 'contacts' && <Contacts openNew={pendingNew === 'contacts'} onNewHandled={clearPending} />}
+            {view === 'playbook' && <Playbook />}
             {view === 'assistant' && <Assistant />}
             {view === 'sources' && <Sources />}
           </div>
