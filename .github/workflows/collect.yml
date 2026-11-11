@@ -3,6 +3,8 @@ name: Collect signals
 on:
   schedule:
     - cron: '17 1 * * *'   # daily, 06:47 IST
+    # Backup run: GitHub sometimes delays or skips scheduled jobs. Already-stored articles are skipped.
+    - cron: '43 8 * * *'   # daily, 14:13 IST
   workflow_dispatch:
     inputs:
       sources:

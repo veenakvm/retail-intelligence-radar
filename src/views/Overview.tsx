@@ -34,11 +34,11 @@ export default function Overview({ go }: { go: (v: View) => void }) {
           <b>Data last collected {timeAgo(last.finished_at ?? last.started_at)}</b>
           <span>{last.new_articles} new articles, {last.classified} classified.</span>
           {last.status !== 'success' && <span>Some sources had problems: <button className="underline" onClick={() => go('sources')}>see Data Sources</button>.</span>}
-          <span className="ml-auto opacity-80">Next collection: daily around 6:45 am IST</span>
+          <span className="ml-auto opacity-80">Collected daily around 6:45 am and 2:15 pm IST</span>
         </div>
       ) : (
         <div className="mb-4 rounded-lg border border-line bg-white px-3 py-2 text-xs text-gray-600">
-          No data collected yet. The first collection runs daily around 6:45 am IST.
+          No data collected yet. Collections run daily around 6:45 am and 2:15 pm IST.
         </div>
       )}
       {signals.error && <ErrorNote message={signals.error} />}
