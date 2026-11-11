@@ -125,10 +125,14 @@ async function main() {
 
   // A re-scoring run with no sources selected collects nothing on purpose.
   // Map older free-text fit labels onto the fixed service-line list (cheap; only touches non-standard rows).
-  const { data: odd } = await db.from('signals').select('id, fit_area')
-    .not('fit_area', 'is', null).not('fit_area', 'in', `(${SERVICE_LINE_NAMES.map(n => `"${n}"`).join(',')})`).limit(2000);
+  const { data: labelled, error: labelError } = await db.from('signals').select('id, fit_area')
+    .not('fit_area', 'is', null).order('fetched_at', { ascending: false }).limit(5000);
+  if (labelError) errors.push('normalise: ' + labelError.message);
+  const standard = new Set(SERVICE_LINE_NAMES);
+  const odd = (labelled ?? []).filter(r => !standard.has(r.fit_area));
+  console.log(`Fit labels: ${labelled?.length ?? 0} labelled, ${odd.length} non-standard`);
   let normalised = 0;
-  for (const row of odd ?? []) {
+  for (const row of odd) {
     const line = toServiceLine(row.fit_area);
     const { error } = await db.from('signals').update({ fit_area: line ? line.name : null }).eq('id', row.id);
     if (!error) normalised++;
