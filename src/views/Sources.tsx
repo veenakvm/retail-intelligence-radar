@@ -6,7 +6,7 @@ import { SOURCE_LABELS, type CollectorRun, type Signal } from '../lib/types';
 import { ErrorNote, PageHeader, Spinner } from '../components/ui';
 
 const SOURCES: { key: Signal['source_type']; what: string }[] = [
-  { key: 'news_feed', what: 'Trade and business news feeds: ET Retail, Economic Times (retail, consumer products, funding), Mint, Business Standard, Moneycontrol, Inc42, YourStory, Entrackr, Indian Retailer, FashionNetwork, Retail Dive, Grocery Dive, Modern Retail, Retail TouchPoints, Glossy. General business feeds keep only retail-related headlines.' },
+  { key: 'news_feed', what: 'Trade and business news feeds: ET Retail, Economic Times (consumer products, tech funding), Mint, Moneycontrol, Inc42, YourStory (India); Retail Dive, Grocery Dive, Modern Retail, Glossy (USA). General business feeds keep only retail-related headlines.' },
   { key: 'google_news', what: 'News searches for each market × sector × signal type (48 searches, last 2 days), plus Retailers Association of India (RAI) news and reports.' },
   { key: 'gdelt', what: 'GDELT global news index. Off by default: GDELT rate-limits the shared GitHub servers the collector runs on. Run the collector manually with “gdelt” in the sources box to try it.' },
   { key: 'sec_edgar', what: 'US SEC full-text search of company filings (8-K, 10-Q, S-1) mentioning retail acquisitions, store expansion and IPOs. Authoritative, US only.' },

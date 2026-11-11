@@ -84,28 +84,23 @@ export const PRESS_FEEDS = [
  * Trade and business news RSS feeds. `filter: true` keeps only headlines mentioning retail/consumer terms
  * (for general business feeds); retail-specific feeds keep everything.
  */
+// Tested from GitHub Actions on 11 Nov 2026. Not usable (block automated readers or have no feed):
+// Business Standard, FashionNetwork, Chain Store Age, Retail TouchPoints, Entrackr, Indian Retailer.
 export const NEWS_FEEDS: { url: string; query: string; filter?: boolean }[] = [
   // India: Economic Times
   { url: 'https://retail.economictimes.indiatimes.com/rss/topstories', query: 'ET Retail · Top stories' },
   { url: 'https://retail.economictimes.indiatimes.com/rss/recentstories', query: 'ET Retail · Latest' },
-  { url: 'https://economictimes.indiatimes.com/industry/services/retail/rssfeeds/13358727.cms', query: 'Economic Times · Retail' },
   { url: 'https://economictimes.indiatimes.com/industry/cons-products/rssfeeds/13358759.cms', query: 'Economic Times · Consumer products', filter: true },
   { url: 'https://economictimes.indiatimes.com/tech/funding/rssfeeds/78570530.cms', query: 'ET Tech · Funding', filter: true },
   // India: business and startup media
   { url: 'https://www.livemint.com/rss/companies', query: 'Mint · Companies', filter: true },
-  { url: 'https://www.business-standard.com/rss/companies-101.rss', query: 'Business Standard · Companies', filter: true },
   { url: 'https://www.moneycontrol.com/rss/business.xml', query: 'Moneycontrol · Business', filter: true },
   { url: 'https://inc42.com/feed/', query: 'Inc42', filter: true },
   { url: 'https://yourstory.com/feed', query: 'YourStory', filter: true },
-  { url: 'https://entrackr.com/feed/', query: 'Entrackr', filter: true },
-  { url: 'https://www.indianretailer.com/rss/news.xml', query: 'Indian Retailer' },
-  { url: 'https://www.fashionnetwork.com/rss/feed/in', query: 'FashionNetwork India', filter: true },
   // USA: retail trade media
   { url: 'https://www.retaildive.com/feeds/news/', query: 'Retail Dive' },
   { url: 'https://www.grocerydive.com/feeds/news/', query: 'Grocery Dive' },
   { url: 'https://www.modernretail.co/feed/', query: 'Modern Retail' },
-  { url: 'https://chainstoreage.com/rss.xml', query: 'Chain Store Age' },
-  { url: 'https://www.retailtouchpoints.com/feed', query: 'Retail TouchPoints' },
   { url: 'https://www.glossy.co/feed/', query: 'Glossy (beauty & fashion)' },
 ];
 
