@@ -5,6 +5,7 @@ import { formatDate, timeAgo } from '../lib/format';
 import type { CollectorRun, Opportunity, Signal } from '../lib/types';
 import { PageHeader, ScoreExplanation, SignalBadge, Spinner, Stat, ErrorNote } from '../components/ui';
 import type { View } from '../App';
+import { ServiceLineChip } from '../components/serviceLine';
 
 const since = (days: number) => new Date(Date.now() - days * 86400000).toISOString();
 
@@ -59,7 +60,7 @@ export default function Overview({ go }: { go: (v: View) => void }) {
                 <div className="flex flex-wrap items-center gap-2">
                   <SignalBadge type={s.signal_type} />
                   <span className="text-[11px] text-gray-500">{s.country} · {s.sector} · {formatDate(s.published_at)}</span>
-                  {s.fit_score != null && <span className="ml-auto text-[11px] font-semibold text-brand-600">Fit {s.fit_score}</span>}
+                  <span className="ml-auto flex items-center gap-2 text-[11px]"><ServiceLineChip label={s.fit_area} />{s.fit_score != null && <span className="font-semibold text-brand-600">Fit {s.fit_score}</span>}</span>
                 </div>
                 <a href={s.url} target="_blank" rel="noreferrer" className="mt-1 block text-[13px] font-semibold hover:text-brand-600">
                   {s.company && !s.title.toLowerCase().includes(s.company.toLowerCase()) ? `${s.company} · ` : ''}{s.title} <ExternalLink className="inline h-3 w-3 text-gray-400" />

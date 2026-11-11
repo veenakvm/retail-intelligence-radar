@@ -1,14 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Download, ExternalLink, Plus, Search } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useQuery, createOpportunityFromSignal } from '../lib/data';
 import { downloadCsv, formatDate } from '../lib/format';
 import { SECTORS, SIGNAL_TYPES, SOURCE_LABELS, type Signal } from '../lib/types';
+import { ServiceLineChip } from '../components/serviceLine';
+import { SERVICE_LINE_NAMES } from '../lib/serviceLines';
 import { Empty, ErrorNote, FitScore, PageHeader, ScoreExplanation, SignalBadge, Spinner, Tag, useToast } from '../components/ui';
 
 const PAGE = 50;
 
-export default function Feed() {
+export default function Feed({ initialServiceLine, onFilterApplied }: { initialServiceLine?: string; onFilterApplied?: () => void } = {}) {
   const toast = useToast();
   const [q, setQ] = useState('');
   const [search, setSearch] = useState('');
@@ -17,6 +19,8 @@ export default function Feed() {
   const [kind, setKind] = useState('');
   const [days, setDays] = useState('30');
   const [minFit, setMinFit] = useState('0');
+  const [line, setLine] = useState(initialServiceLine ?? '');
+  useEffect(() => { if (initialServiceLine) { setLine(initialServiceLine); setPage(0); onFilterApplied?.(); } }, [initialServiceLine, onFilterApplied]);
   const [showAll, setShowAll] = useState(false);
   const [page, setPage] = useState(0);
 
@@ -26,11 +30,12 @@ export default function Feed() {
     if (country) query = query.eq('country', country);
     if (sector) query = query.eq('sector', sector);
     if (kind) query = query.eq('signal_type', kind);
+    if (line) query = query.eq('fit_area', line);
     if (Number(minFit) > 0) query = query.gte('fit_score', Number(minFit));
     if (days !== 'all') query = query.gte('published_at', new Date(Date.now() - Number(days) * 86400000).toISOString());
     if (search) query = query.textSearch('search', search, { type: 'websearch', config: 'english' });
     return query.order('published_at', { ascending: false, nullsFirst: false }).range(page * PAGE, page * PAGE + PAGE);
-  }, [search, country, sector, kind, days, minFit, showAll, page]);
+  }, [search, country, sector, kind, line, days, minFit, showAll, page]);
 
   const rows = (data ?? []).slice(0, PAGE);
   const hasMore = (data ?? []).length > PAGE;
@@ -66,6 +71,9 @@ export default function Feed() {
           <select className="field w-auto" value={kind} onChange={e => reset(setKind)(e.target.value)} aria-label="Signal type">
             <option value="">All signals</option>{SIGNAL_TYPES.map(s => <option key={s}>{s}</option>)}
           </select>
+          <select className="field w-auto" value={line} onChange={e => reset(setLine)(e.target.value)} aria-label="Service line">
+            <option value="">All service lines</option>{SERVICE_LINE_NAMES.map(s => <option key={s}>{s}</option>)}
+          </select>
           <select className="field w-auto" value={days} onChange={e => reset(setDays)(e.target.value)} aria-label="Period">
             <option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="all">All time</option>
           </select>
@@ -88,7 +96,7 @@ export default function Feed() {
               <th className="th">Market / sector</th>
               <th className="th">Signal</th>
               <th className="th">Possible business implication <span className="normal-case font-normal">(AI)</span></th>
-              <th className="th">Fit score, reason &amp; how to improve <span className="normal-case font-normal">(AI)</span></th>
+              <th className="th">Fit score, service line, reason &amp; how to improve <span className="normal-case font-normal">(AI)</span></th>
               <th className="th"></th>
             </tr>
           </thead>
@@ -114,7 +122,7 @@ export default function Feed() {
                 </td>
                 <td className="td max-w-[260px] text-gray-700">{s.business_implication || '—'}</td>
                 <td className="td min-w-[260px] max-w-[340px]">
-                  <div className="flex flex-wrap items-center gap-1.5"><FitScore score={s.fit_score} />{s.fit_area && <span className="font-semibold">{s.fit_area}</span>}</div>
+                  <div className="flex flex-wrap items-center gap-1.5"><FitScore score={s.fit_score} /><ServiceLineChip label={s.fit_area} /></div>
                   <ScoreExplanation reason={s.score_reason} improvement={s.score_improvement} />
                   <div className="mt-1.5"><Tag>{SOURCE_LABELS[s.source_type]}</Tag></div>
                 </td>

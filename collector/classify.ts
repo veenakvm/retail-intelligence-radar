@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
+import { SERVICE_LINES, SERVICE_LINE_NAMES } from '../src/lib/serviceLines.ts';
 
 export const MODEL = process.env.CLAUDE_MODEL || 'claude-opus-5-5';
 const BATCH_SIZE = 10;
@@ -26,7 +27,7 @@ const Classification = z.object({
   signal_type: z.enum(SIGNALS),
   summary: z.string(),
   business_implication: z.string(),
-  fit_area: z.string(),
+  fit_area: z.enum(['None', ...SERVICE_LINE_NAMES] as [string, ...string[]]),
   fit_score: z.number().int().min(0).max(100),
   score_reason: z.string(),
   score_improvement: z.string(),
@@ -62,7 +63,7 @@ const RESULT_SCHEMA = {
           signal_type: { type: 'string', enum: [...SIGNALS] },
           summary: str,
           business_implication: str,
-          fit_area: str,
+          fit_area: { type: 'string', enum: [...SERVICE_LINE_NAMES, 'None'] },
           fit_score: { type: 'integer' },
           score_reason: str,
           score_improvement: str,
@@ -87,7 +88,8 @@ For each article, using only the headline, snippet and publisher you are given:
 - company: the main company the event is about; "" if unclear.
 - summary: one factual sentence stating only what the article reports.
 - business_implication: one sentence on what the event may require operationally (systems, rollouts, integrations). This is an inference; phrase it with "may" or "could".
-- fit_area: the AlgoShack service line that could fit, e.g. "Omnichannel QA", "API and performance testing", "AI quality engineering"; "" if none.
+- fit_area: the single best-matching AlgoShack service line from this list, or "None" if not relevant:
+${SERVICE_LINES.map(l => `  - ${l.name}: ${l.summary} Typical signals: ${l.signals.join('; ')}.`).join('\n')}
 - fit_score: 0-100 for how promising the event is as a research lead for AlgoShack. Weigh: (a) a named, specific event rather than a vague plan; (b) scale (number of stores, markets, size of round or deal); (c) an explicit technology, platform, app, ERP/POS or AI change, which matters most; (d) sector fit with the tracked sectors; (e) recency. 0 if not relevant.
 - score_reason: one short sentence naming the 2-3 factors that most drove the score, both positive and negative, e.g. "Named jewellery chain announcing 50 stores (POS and inventory rollout likely); no technology partner mentioned." "" if not relevant.
 - score_improvement: one short sentence, written as an action for the business-development team, saying what evidence or step would raise the score or strengthen the lead, e.g. "Confirm which POS/ERP platform they use and whether a vendor has been selected; identify the CIO or head of retail technology." Be specific to this event. "" if not relevant.

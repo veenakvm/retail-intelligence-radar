@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { fetchGoogleNews, fetchGdelt, fetchSec, fetchPressReleases, fetchNewsFeeds, titleKey, type RawArticle, type SourceResult } from './sources.ts';
 import { classifyAll, MODEL } from './classify.ts';
 import { MAX_CLASSIFY } from './config.ts';
+import { SERVICE_LINE_NAMES, toServiceLine } from '../src/lib/serviceLines.ts';
 
 const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY } = process.env;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -103,7 +104,7 @@ async function main() {
         currency: fields.currency || null,
         deal_status: fields.deal_status || null,
         company: fields.company || null,
-        fit_area: fields.fit_area || null,
+        fit_area: fields.fit_area && fields.fit_area !== 'None' ? fields.fit_area : null,
         classified_at: now,
         classifier_model: MODEL,
       }).eq('id', id);
@@ -114,7 +115,7 @@ async function main() {
         errors.push('score_reason / score_improvement columns missing: run supabase/migrations/004_score_reasons.sql');
         ({ error } = await db.from('signals').update({
           ...fields, investor: fields.investor || null, currency: fields.currency || null, deal_status: fields.deal_status || null,
-          company: fields.company || null, fit_area: fields.fit_area || null, classified_at: now, classifier_model: MODEL,
+          company: fields.company || null, fit_area: fields.fit_area && fields.fit_area !== 'None' ? fields.fit_area : null, classified_at: now, classifier_model: MODEL,
         }).eq('id', id));
       }
       if (error) errors.push('update: ' + error.message); else classified++;
@@ -123,6 +124,17 @@ async function main() {
   }
 
   // A re-scoring run with no sources selected collects nothing on purpose.
+  // Map older free-text fit labels onto the fixed service-line list (cheap; only touches non-standard rows).
+  const { data: odd } = await db.from('signals').select('id, fit_area')
+    .not('fit_area', 'is', null).not('fit_area', 'in', `(${SERVICE_LINE_NAMES.map(n => `"${n}"`).join(',')})`).limit(2000);
+  let normalised = 0;
+  for (const row of odd ?? []) {
+    const line = toServiceLine(row.fit_area);
+    const { error } = await db.from('signals').update({ fit_area: line ? line.name : null }).eq('id', row.id);
+    if (!error) normalised++;
+  }
+  if (normalised) console.log(`Normalised ${normalised} older fit labels to the service-line list`);
+
   const anyArticles = Object.keys(stats).length === 0 ? classified > 0 : Object.values(stats).some(s => s.articles > 0);
   await db.from('collector_runs').update({
     finished_at: new Date().toISOString(),

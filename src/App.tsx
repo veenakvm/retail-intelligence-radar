@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { Activity, BarChart3, ChevronDown, Contact as ContactIcon, Database, LayoutDashboard, LogOut, Menu, Plus, Sparkles, Target, TrendingUp, X, type LucideIcon } from 'lucide-react';
+import { Activity, BarChart3, BookOpen, ChevronDown, Contact as ContactIcon, Database, LayoutDashboard, LogOut, Menu, Plus, Sparkles, Target, TrendingUp, X, type LucideIcon } from 'lucide-react';
 import { isConfigured, supabase } from './lib/supabase';
 import { ToastProvider, Spinner } from './components/ui';
 import Login, { SetPassword } from './views/Login';
@@ -11,8 +11,9 @@ import Pipeline from './views/Pipeline';
 import Assistant from './views/Assistant';
 import Sources from './views/Sources';
 import Contacts from './views/Contacts';
+import ServiceLines from './views/ServiceLines';
 
-export type View = 'home' | 'feed' | 'invest' | 'pipeline' | 'contacts' | 'assistant' | 'sources';
+export type View = 'home' | 'feed' | 'invest' | 'pipeline' | 'contacts' | 'services' | 'assistant' | 'sources';
 
 const NAV: { id: View; label: string; icon: LucideIcon }[] = [
   { id: 'home', label: 'Overview', icon: LayoutDashboard },
@@ -20,6 +21,7 @@ const NAV: { id: View; label: string; icon: LucideIcon }[] = [
   { id: 'invest', label: 'Investment Radar', icon: TrendingUp },
   { id: 'pipeline', label: 'Opportunity Pipeline', icon: Target },
   { id: 'contacts', label: 'Contacts', icon: ContactIcon },
+  { id: 'services', label: 'Service Lines', icon: BookOpen },
   { id: 'assistant', label: 'AI Research Assistant', icon: Sparkles },
   { id: 'sources', label: 'Data Sources & Health', icon: Database },
 ];
@@ -36,6 +38,7 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [newMenu, setNewMenu] = useState(false);
   const [pendingNew, setPendingNew] = useState<'pipeline' | 'contacts' | null>(null);
+  const [feedServiceLine, setFeedServiceLine] = useState<string | undefined>();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); setLoading(false); });
@@ -75,6 +78,7 @@ export default function App() {
   }
 
   const clearPending = () => setPendingNew(null);
+  const clearFeedFilter = () => setFeedServiceLine(undefined);
   const go = (v: View) => { setView(v); setMenuOpen(false); window.scrollTo({ top: 0 }); };
   const active = NAV.find(n => n.id === view)!;
 
@@ -147,7 +151,8 @@ export default function App() {
           </header>
           <div className="mx-auto max-w-[1400px] p-4 sm:p-6">
             {view === 'home' && <Overview go={go} />}
-            {view === 'feed' && <Feed />}
+            {view === 'feed' && <Feed initialServiceLine={feedServiceLine} onFilterApplied={clearFeedFilter} />}
+            {view === 'services' && <ServiceLines openFeed={l => { setFeedServiceLine(l); go('feed'); }} />}
             {view === 'invest' && <Investments />}
             {view === 'pipeline' && <Pipeline openNew={pendingNew === 'pipeline'} onNewHandled={clearPending} />}
             {view === 'contacts' && <Contacts openNew={pendingNew === 'contacts'} onNewHandled={clearPending} />}
