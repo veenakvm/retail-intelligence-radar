@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Download, ExternalLink, Plus, Search } from 'lucide-react';
+import { Download, ExternalLink, Plus, Search, Send } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useQuery, createOpportunityFromSignal } from '../lib/data';
 import { downloadCsv, formatDate } from '../lib/format';
 import { SECTORS, SIGNAL_TYPES, SOURCE_LABELS, type Signal } from '../lib/types';
 import { ServiceLineChip } from '../components/serviceLine';
+import { OutreachDialog } from '../components/outreach';
 import { SERVICE_LINE_NAMES } from '../lib/serviceLines';
 import { Empty, ErrorNote, FitScore, PageHeader, ScoreExplanation, SignalBadge, Spinner, Tag, useToast } from '../components/ui';
 
@@ -23,6 +24,7 @@ export default function Feed({ initialServiceLine, onFilterApplied }: { initialS
   useEffect(() => { if (initialServiceLine) { setLine(initialServiceLine); setPage(0); onFilterApplied?.(); } }, [initialServiceLine, onFilterApplied]);
   const [showAll, setShowAll] = useState(false);
   const [page, setPage] = useState(0);
+  const [outreachFor, setOutreachFor] = useState<Signal | null>(null);
 
   const { data, error, loading } = useQuery<Signal[]>(() => {
     let query = supabase.from('signals').select('*');
@@ -128,7 +130,10 @@ export default function Feed({ initialServiceLine, onFilterApplied }: { initialS
                 </td>
                 <td className="td">
                   {s.relevant && (
-                    <button className="btn whitespace-nowrap" onClick={() => addToPipeline(s)}><Plus className="h-3.5 w-3.5" /> Pipeline</button>
+                    <div className="flex flex-col gap-1.5">
+                      <button className="btn whitespace-nowrap" onClick={() => addToPipeline(s)}><Plus className="h-3.5 w-3.5" /> Pipeline</button>
+                      <button className="btn whitespace-nowrap" onClick={() => setOutreachFor(s)}><Send className="h-3.5 w-3.5" /> Outreach</button>
+                    </div>
                   )}
                 </td>
               </tr>
@@ -143,6 +148,9 @@ export default function Feed({ initialServiceLine, onFilterApplied }: { initialS
           <button className="btn" disabled={!hasMore} onClick={() => setPage(p => p + 1)}>Next</button>
         </div>
       </div>
+      {outreachFor && (
+        <OutreachDialog title={outreachFor.company || outreachFor.title} signalId={outreachFor.id} onClose={() => setOutreachFor(null)} />
+      )}
       <p className="mt-3 text-[11px] text-[#6c788a]">
         Summaries, implications and fit scores are AI-generated from headlines and snippets. Open the source and verify before outreach.
       </p>

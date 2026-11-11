@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Columns3, Download, ExternalLink, List, Phone, Plus, UserPlus, UserRound, Users } from 'lucide-react';
+import { Columns3, Download, ExternalLink, List, Phone, Plus, Send, UserPlus, UserRound, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useQuery, useTeam } from '../lib/data';
 import { downloadCsv, formatDate, timeAgo } from '../lib/format';
@@ -7,6 +7,7 @@ import { PRIORITIES, STAGES, type Contact, type Opportunity, type OpportunityAct
 import { Empty, ErrorNote, PageHeader, Spinner, useToast } from '../components/ui';
 import { Dialog, SidePanel } from '../components/overlay';
 import { ContactCard, ContactForm, emptyContact } from '../components/contacts';
+import { OutreachDialog } from '../components/outreach';
 
 const PRIORITY_STYLE: Record<string, string> = {
   High: 'bg-red-50 text-red-700',
@@ -249,6 +250,7 @@ function OpportunityPanel({ opp, team, memberName, onClose, onChange, onUpdate }
   const [form, setForm] = useState({ trigger: opp.trigger, fit: opp.fit, next_action: opp.next_action, notes: opp.notes });
   const [addingContact, setAddingContact] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
+  const [outreach, setOutreach] = useState(false);
   const contacts = useQuery<Contact[]>(() =>
     supabase.from('contacts').select('*').or(`opportunity_id.eq.${opp.id},company.ilike."${opp.company.replace(/["\\]/g, '')}"`).order('created_at'), [opp.id, opp.company]);
   const history = useQuery<OpportunityActivity[]>(() =>
@@ -272,6 +274,14 @@ function OpportunityPanel({ opp, team, memberName, onClose, onChange, onUpdate }
   return (
     <SidePanel title={opp.company} onClose={onClose}
       subtitle={<>Added {formatDate(opp.created_at)} · updated {timeAgo(opp.updated_at)}{opp.created_by ? ` · by ${memberName(opp.created_by)}` : ''}</>}>
+      <button className="btn-primary mb-4 w-full" onClick={() => setOutreach(true)}>
+        <Send className="h-3.5 w-3.5" /> Draft outreach{opp.poc ? ` to ${opp.poc.full_name}` : ''}
+      </button>
+      {outreach && (
+        <OutreachDialog title={opp.company} opportunityId={opp.id} signalId={opp.signal_id}
+          contact={opp.poc ? { name: opp.poc.full_name, role: opp.poc.role, email: opp.poc.email } : null}
+          onClose={() => setOutreach(false)} />
+      )}
       <div className="mb-4 grid grid-cols-3 gap-2">
         <div><label className="label">Stage</label><StageSelect value={opp.stage} onChange={v => onUpdate({ stage: v }, 'Stage updated')} /></div>
         <div><label className="label">Priority</label><PrioritySelect value={opp.priority} onChange={v => onUpdate({ priority: v }, 'Priority updated')} /></div>

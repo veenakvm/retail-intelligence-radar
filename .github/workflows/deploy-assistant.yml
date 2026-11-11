@@ -1,9 +1,9 @@
-name: Deploy AI assistant
+name: Deploy AI functions
 
 on:
   push:
     branches: [main]
-    paths: ['supabase/functions/**']
+    paths: ['supabase/functions/**', 'src/lib/serviceLines.ts']
   workflow_dispatch:
 
 jobs:
@@ -23,3 +23,6 @@ jobs:
           supabase secrets set --yes --project-ref "$PROJECT_REF" ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY"
           # The function checks the signed-in user itself (works with new Supabase keys).
           supabase functions deploy ask --yes --project-ref "$PROJECT_REF" --no-verify-jwt
+          # The outreach function shares the service-line definitions with the web app.
+          cp src/lib/serviceLines.ts supabase/functions/outreach/serviceLines.ts
+          supabase functions deploy outreach --yes --project-ref "$PROJECT_REF" --no-verify-jwt

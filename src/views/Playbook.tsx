@@ -49,7 +49,7 @@ export default function Playbook() {
   return (
     <>
       <PageHeader eyebrow="Sales enablement" title="Outreach Playbook"
-        sub="How to turn a Radar signal into a conversation on LinkedIn, by email and by phone, with a worked role play for each." />
+        sub="How to turn a Radar signal into a conversation on LinkedIn, by email and by phone, with a worked role play for each. For a ready-made draft, use the Outreach button on any signal in the Intelligence Feed, or Draft outreach on an opportunity." />
 
       <div className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
         <div className="card p-4">
