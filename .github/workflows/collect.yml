@@ -11,6 +11,11 @@ on:
         description: 'Comma-separated sources: google_news, news_feed, sec_edgar, press_release (gdelt optional; often rate-limited)'
         required: false
         default: 'google_news,news_feed,sec_edgar,press_release'
+      rescore:
+        description: 'Re-score recent relevant articles that have no score explanation (one-off)'
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   collect:
@@ -32,3 +37,4 @@ jobs:
           CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
           MAX_CLASSIFY: ${{ vars.MAX_CLASSIFY }}
           SOURCES: ${{ inputs.sources }}
+          RESCORE: ${{ inputs.rescore }}

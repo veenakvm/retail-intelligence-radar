@@ -34,7 +34,7 @@ export async function createOpportunityFromSignal(signal: Signal): Promise<{ cre
     fit: signal.fit_area || '',
     priority: (signal.fit_score ?? 0) >= 80 ? 'High' : (signal.fit_score ?? 0) >= 60 ? 'Medium' : 'Low',
     stage: 'Research',
-    next_action: 'Validate the signal and identify the decision-maker',
+    next_action: signal.score_improvement || 'Validate the signal and identify the decision-maker',
   };
   const { error } = await supabase.from('opportunities').insert(row);
   return error ? { created: false, error: error.message } : { created: true };

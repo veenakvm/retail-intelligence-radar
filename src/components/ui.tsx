@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Lightbulb, Loader2, Target } from 'lucide-react';
 
 const BADGE: Record<string, string> = {
   Investment: 'bg-[#e9f7f2] text-[#14765e]',
@@ -79,4 +79,28 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       )}
     </ToastContext.Provider>
   );
+}
+
+/** "Why this score" and "To improve" lines under a fit score (AI inference). */
+export function ScoreExplanation({ reason, improvement, compact }: { reason?: string | null; improvement?: string | null; compact?: boolean }) {
+  if (!reason && !improvement) return null;
+  return (
+    <div className={`space-y-1 ${compact ? 'mt-1' : 'mt-2'} text-[11px] leading-snug`}>
+      {reason && (
+        <p className="flex gap-1.5 text-gray-600"><Target className="mt-0.5 h-3 w-3 shrink-0 text-brand-500" />
+          <span><span className="font-semibold text-gray-700">Why: </span>{reason}</span></p>
+      )}
+      {improvement && (
+        <p className="flex gap-1.5 text-gray-600"><Lightbulb className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
+          <span><span className="font-semibold text-gray-700">To improve: </span>{improvement}</span></p>
+      )}
+    </div>
+  );
+}
+
+/** Fit score as a coloured pill. */
+export function FitScore({ score }: { score: number | null }) {
+  if (score == null) return null;
+  const tone = score >= 80 ? 'bg-teal-50 text-teal-700' : score >= 60 ? 'bg-brand-50 text-brand-600' : 'bg-gray-100 text-gray-600';
+  return <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-bold ${tone}`}>{score}/100</span>;
 }

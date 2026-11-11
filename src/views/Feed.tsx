@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useQuery, createOpportunityFromSignal } from '../lib/data';
 import { downloadCsv, formatDate } from '../lib/format';
 import { SECTORS, SIGNAL_TYPES, SOURCE_LABELS, type Signal } from '../lib/types';
-import { Empty, ErrorNote, PageHeader, SignalBadge, Spinner, Tag, useToast } from '../components/ui';
+import { Empty, ErrorNote, FitScore, PageHeader, ScoreExplanation, SignalBadge, Spinner, Tag, useToast } from '../components/ui';
 
 const PAGE = 50;
 
@@ -42,8 +42,8 @@ export default function Feed() {
   };
 
   const exportCsv = () => downloadCsv(`retail-signals-${new Date().toISOString().slice(0, 10)}.csv`,
-    ['Published', 'Company', 'Market', 'Sector', 'Signal', 'Headline', 'Summary', 'Implication (AI)', 'Fit area (AI)', 'Fit score', 'Investor', 'Amount', 'Currency', 'Publisher', 'Source', 'URL'],
-    rows.map(s => [s.published_at?.slice(0, 10), s.company, s.country, s.sector, s.signal_type, s.title, s.summary, s.business_implication, s.fit_area, s.fit_score, s.investor, s.amount, s.currency, s.publisher, SOURCE_LABELS[s.source_type], s.url]));
+    ['Published', 'Company', 'Market', 'Sector', 'Signal', 'Headline', 'Summary', 'Implication (AI)', 'Fit area (AI)', 'Fit score', 'Why this score (AI)', 'To improve the score (AI)', 'Investor', 'Amount', 'Currency', 'Publisher', 'Source', 'URL'],
+    rows.map(s => [s.published_at?.slice(0, 10), s.company, s.country, s.sector, s.signal_type, s.title, s.summary, s.business_implication, s.fit_area, s.fit_score, s.score_reason, s.score_improvement, s.investor, s.amount, s.currency, s.publisher, SOURCE_LABELS[s.source_type], s.url]));
 
   return (
     <>
@@ -88,7 +88,7 @@ export default function Feed() {
               <th className="th">Market / sector</th>
               <th className="th">Signal</th>
               <th className="th">Possible business implication <span className="normal-case font-normal">(AI)</span></th>
-              <th className="th">AlgoShack fit hypothesis <span className="normal-case font-normal">(AI)</span></th>
+              <th className="th">Fit score, reason &amp; how to improve <span className="normal-case font-normal">(AI)</span></th>
               <th className="th"></th>
             </tr>
           </thead>
@@ -113,10 +113,10 @@ export default function Feed() {
                   {s.investor && <div className="mt-1 text-[11px]">{s.signal_type === 'Acquisition' ? 'Acquirer' : 'Investor'}: {s.investor}</div>}
                 </td>
                 <td className="td max-w-[260px] text-gray-700">{s.business_implication || '—'}</td>
-                <td className="td max-w-[200px]">
-                  {s.fit_area || '—'}
-                  {s.fit_score != null && <div className="mt-1 font-bold">{s.fit_score}/100</div>}
-                  <div className="mt-1"><Tag>{SOURCE_LABELS[s.source_type]}</Tag></div>
+                <td className="td min-w-[260px] max-w-[340px]">
+                  <div className="flex flex-wrap items-center gap-1.5"><FitScore score={s.fit_score} />{s.fit_area && <span className="font-semibold">{s.fit_area}</span>}</div>
+                  <ScoreExplanation reason={s.score_reason} improvement={s.score_improvement} />
+                  <div className="mt-1.5"><Tag>{SOURCE_LABELS[s.source_type]}</Tag></div>
                 </td>
                 <td className="td">
                   {s.relevant && (

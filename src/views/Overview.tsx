@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/data';
 import { formatDate, timeAgo } from '../lib/format';
 import type { CollectorRun, Opportunity, Signal } from '../lib/types';
-import { PageHeader, SignalBadge, Spinner, Stat, ErrorNote } from '../components/ui';
+import { PageHeader, ScoreExplanation, SignalBadge, Spinner, Stat, ErrorNote } from '../components/ui';
 import type { View } from '../App';
 
 const since = (days: number) => new Date(Date.now() - days * 86400000).toISOString();
@@ -65,6 +65,7 @@ export default function Overview({ go }: { go: (v: View) => void }) {
                   {s.company && !s.title.toLowerCase().includes(s.company.toLowerCase()) ? `${s.company} · ` : ''}{s.title} <ExternalLink className="inline h-3 w-3 text-gray-400" />
                 </a>
                 {s.summary && <p className="mt-1 text-[11px] text-[#6c788a]">{s.summary}</p>}
+                <ScoreExplanation reason={s.score_reason} improvement={s.score_improvement} compact />
               </div>
             ))
           )}

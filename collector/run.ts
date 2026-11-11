@@ -74,18 +74,31 @@ async function main() {
     errors.push('ANTHROPIC_API_KEY not set; classification skipped');
   } else {
     const since = new Date(Date.now() - 7 * 86400000).toISOString();
-    const { data: pending } = await db.from('signals')
-      .select('id, title, publisher, snippet, source_type, published_at')
-      .is('classified_at', null).gte('fetched_at', since)
-      .order('published_at', { ascending: false, nullsFirst: false })
-      .limit(MAX_CLASSIFY);
+    // RESCORE=1: re-classify recent relevant articles that have no score explanation yet.
+    const rescore = process.env.RESCORE === '1' || process.env.RESCORE === 'true';
+    const { data: pending } = rescore
+      ? await db.from('signals')
+          .select('id, title, publisher, snippet, source_type, published_at')
+          .eq('relevant', true).is('score_reason', null)
+          .gte('fetched_at', new Date(Date.now() - 45 * 86400000).toISOString())
+          .order('published_at', { ascending: false, nullsFirst: false })
+          .limit(Number(process.env.RESCORE_LIMIT || 600))
+      : await db.from('signals')
+          .select('id, title, publisher, snippet, source_type, published_at')
+          .is('classified_at', null).gte('fetched_at', since)
+          .order('published_at', { ascending: false, nullsFirst: false })
+          .limit(MAX_CLASSIFY);
+    if (rescore) console.log(`Re-scoring ${pending?.length ?? 0} relevant articles without a score explanation`);
+    let hasReasonColumns = true;
     const { results, errors: classifyErrors } = await classifyAll(pending ?? []);
     errors.push(...classifyErrors.map(e => 'classify: ' + e));
     const now = new Date().toISOString();
     for (const [id, c] of results) {
-      const { index: _index, ...fields } = c;
-      const { error } = await db.from('signals').update({
+      const { index: _index, score_reason, score_improvement, ...fields } = c;
+      const reasons = hasReasonColumns ? { score_reason: score_reason || null, score_improvement: score_improvement || null } : {};
+      const update = async () => db.from('signals').update({
         ...fields,
+        ...reasons,
         investor: fields.investor || null,
         currency: fields.currency || null,
         deal_status: fields.deal_status || null,
@@ -94,6 +107,16 @@ async function main() {
         classified_at: now,
         classifier_model: MODEL,
       }).eq('id', id);
+      let { error } = await update();
+      // Before migration 004 the score explanation columns do not exist: save the rest.
+      if (error && hasReasonColumns && /score_(reason|improvement)/.test(error.message)) {
+        hasReasonColumns = false;
+        errors.push('score_reason / score_improvement columns missing: run supabase/migrations/004_score_reasons.sql');
+        ({ error } = await db.from('signals').update({
+          ...fields, investor: fields.investor || null, currency: fields.currency || null, deal_status: fields.deal_status || null,
+          company: fields.company || null, fit_area: fields.fit_area || null, classified_at: now, classifier_model: MODEL,
+        }).eq('id', id));
+      }
       if (error) errors.push('update: ' + error.message); else classified++;
     }
     console.log(`Classified: ${classified} of ${pending?.length ?? 0}`);

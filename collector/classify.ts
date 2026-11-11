@@ -28,6 +28,8 @@ const Classification = z.object({
   business_implication: z.string(),
   fit_area: z.string(),
   fit_score: z.number().int().min(0).max(100),
+  score_reason: z.string(),
+  score_improvement: z.string(),
   investor: z.string(),
   amount: z.number().nullable(),
   currency: z.string(),
@@ -50,7 +52,7 @@ const RESULT_SCHEMA = {
         type: 'object',
         additionalProperties: false,
         required: ['index', 'relevant', 'company', 'country', 'sector', 'signal_type', 'summary', 'business_implication',
-          'fit_area', 'fit_score', 'investor', 'amount', 'currency', 'deal_status', 'confidence'],
+          'fit_area', 'fit_score', 'score_reason', 'score_improvement', 'investor', 'amount', 'currency', 'deal_status', 'confidence'],
         properties: {
           index: { type: 'integer' },
           relevant: { type: 'boolean' },
@@ -62,6 +64,8 @@ const RESULT_SCHEMA = {
           business_implication: str,
           fit_area: str,
           fit_score: { type: 'integer' },
+          score_reason: str,
+          score_improvement: str,
           investor: str,
           amount: { anyOf: [{ type: 'number' }, { type: 'null' }] },
           currency: str,
@@ -84,7 +88,9 @@ For each article, using only the headline, snippet and publisher you are given:
 - summary: one factual sentence stating only what the article reports.
 - business_implication: one sentence on what the event may require operationally (systems, rollouts, integrations). This is an inference; phrase it with "may" or "could".
 - fit_area: the AlgoShack service line that could fit, e.g. "Omnichannel QA", "API and performance testing", "AI quality engineering"; "" if none.
-- fit_score: 0-100 for how promising the event is as a research lead for AlgoShack (event recency and size, technology change, sector fit). 0 if not relevant.
+- fit_score: 0-100 for how promising the event is as a research lead for AlgoShack. Weigh: (a) a named, specific event rather than a vague plan; (b) scale (number of stores, markets, size of round or deal); (c) an explicit technology, platform, app, ERP/POS or AI change, which matters most; (d) sector fit with the tracked sectors; (e) recency. 0 if not relevant.
+- score_reason: one short sentence naming the 2-3 factors that most drove the score, both positive and negative, e.g. "Named jewellery chain announcing 50 stores (POS and inventory rollout likely); no technology partner mentioned." "" if not relevant.
+- score_improvement: one short sentence, written as an action for the business-development team, saying what evidence or step would raise the score or strengthen the lead, e.g. "Confirm which POS/ERP platform they use and whether a vendor has been selected; identify the CIO or head of retail technology." Be specific to this event. "" if not relevant.
 - investor, amount, currency, deal_status: only when stated in the text; otherwise "" (or null for amount). Never estimate amounts. amount is the number in the stated currency's units (e.g. 25000000 for "$25 million", 1500000000 for "Rs 150 crore").
 - confidence: how clearly the text supports your classification.
 

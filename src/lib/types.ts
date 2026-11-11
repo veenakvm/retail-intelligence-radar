@@ -23,6 +23,8 @@ export interface Signal {
   business_implication: string | null;
   fit_area: string | null;
   fit_score: number | null;
+  score_reason?: string | null;
+  score_improvement?: string | null;
   investor: string | null;
   amount: number | null;
   currency: string | null;
