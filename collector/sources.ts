@@ -1,11 +1,11 @@
 import { XMLParser } from 'fast-xml-parser';
-import { googleNewsFeeds, gdeltQueries, secQueries, PRESS_FEEDS } from './config.ts';
+import { googleNewsFeeds, gdeltQueries, secQueries, PRESS_FEEDS, NEWS_FEEDS, RETAIL_KEYWORDS } from './config.ts';
 
 export interface RawArticle {
   url: string;
   title: string;
   publisher: string;
-  source_type: 'google_news' | 'gdelt' | 'sec_edgar' | 'press_release';
+  source_type: 'google_news' | 'gdelt' | 'sec_edgar' | 'press_release' | 'news_feed';
   source_query: string;
   snippet: string;
   published_at: string | null;
@@ -15,6 +15,8 @@ export interface SourceResult {
   articles: RawArticle[];
   requests: number;
   failures: { query: string; error: string }[];
+  /** Articles per feed/query, for the run log. */
+  perQuery: Record<string, number>;
 }
 
 const xml = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
@@ -54,9 +56,14 @@ const asArray = <T,>(x: T | T[] | undefined): T[] => (x === undefined ? [] : Arr
 
 function parseRss(body: string, sourceType: RawArticle['source_type'], query: string): RawArticle[] {
   const doc = xml.parse(body);
-  const items = asArray(doc?.rss?.channel?.item);
-  return items.map((it: Record<string, unknown>) => {
-    let title = stripHtml(String(it.title ?? ''));
+  // RSS 2.0 (<rss><channel><item>) or Atom (<feed><entry>)
+  const rssItems = asArray(doc?.rss?.channel?.item) as Record<string, unknown>[];
+  const atomItems = asArray(doc?.feed?.entry) as Record<string, unknown>[];
+  if (!rssItems.length && !atomItems.length && !doc?.rss && !doc?.feed) throw new Error('Not an RSS/Atom feed');
+  const text = (v: unknown): string => (v && typeof v === 'object' ? String((v as Record<string, unknown>)['#text'] ?? '') : String(v ?? ''));
+  const items = rssItems.length ? rssItems : atomItems;
+  return items.map(it => {
+    let title = stripHtml(text(it.title));
     let publisher = '';
     const src = it.source as { '#text'?: string } | string | undefined;
     if (src) publisher = typeof src === 'string' ? src : src['#text'] ?? '';
@@ -64,14 +71,15 @@ function parseRss(body: string, sourceType: RawArticle['source_type'], query: st
     if (sourceType === 'google_news' && publisher && title.endsWith(` - ${publisher}`)) {
       title = title.slice(0, -(publisher.length + 3));
     }
+    const atomLink = asArray(it.link as unknown).map(l => (l && typeof l === 'object' ? String((l as Record<string, unknown>)['@_href'] ?? '') : String(l ?? ''))).find(Boolean);
     return {
-      url: String(it.link ?? ''),
+      url: (rssItems.length ? text(it.link) : atomLink ?? '').trim(),
       title,
-      publisher: publisher || (sourceType === 'press_release' ? query.split(' · ')[0] : ''),
+      publisher: publisher || (sourceType === 'google_news' ? '' : query.split(' · ')[0]),
       source_type: sourceType,
       source_query: query,
-      snippet: stripHtml(String(it.description ?? '')).slice(0, 600),
-      published_at: toIso(it.pubDate),
+      snippet: stripHtml(text(it.description ?? it.summary ?? it.content)).slice(0, 600),
+      published_at: toIso(it.pubDate ?? it.published ?? it.updated ?? it['dc:date']),
     };
   }).filter(a => a.url && a.title);
 }
@@ -81,11 +89,13 @@ async function runAll(
   handle: (body: string, query: string) => RawArticle[],
   opts: { delayMs: number; headers?: Record<string, string>; retries?: number; timeoutMs?: number }
 ): Promise<SourceResult> {
-  const result: SourceResult = { articles: [], requests: 0, failures: [] };
+  const result: SourceResult = { articles: [], requests: 0, failures: [], perQuery: {} };
   for (const job of jobs) {
     result.requests++;
     try {
-      result.articles.push(...handle(await get(job.url, opts.headers, opts.retries ?? 0, opts.timeoutMs), job.query));
+      const found = handle(await get(job.url, opts.headers, opts.retries ?? 0, opts.timeoutMs), job.query);
+      result.perQuery[job.query] = found.length;
+      result.articles.push(...found);
     } catch (e) {
       result.failures.push({ query: job.query, error: (e as Error).message });
     }
@@ -96,6 +106,16 @@ async function runAll(
 
 export function fetchGoogleNews() {
   return runAll(googleNewsFeeds(), (b, q) => parseRss(b, 'google_news', q), { delayMs: 1200 });
+}
+
+/** Trade and business news feeds (Economic Times, Mint, Retail Dive…). */
+export function fetchNewsFeeds() {
+  const keywords = new RegExp(`\\b(${RETAIL_KEYWORDS.map(k => k.replace(/[-]/g, '\\-')).join('|')})`, 'i');
+  const filtered = new Set(NEWS_FEEDS.filter(f => f.filter).map(f => f.query));
+  return runAll(NEWS_FEEDS, (b, q) => {
+    const items = parseRss(b, 'news_feed', q);
+    return filtered.has(q) ? items.filter(a => keywords.test(`${a.title} ${a.snippet}`)) : items;
+  }, { delayMs: 800 });
 }
 
 export function fetchPressReleases() {
@@ -126,7 +146,7 @@ export function fetchSec(today = new Date()) {
   // SEC requires a descriptive User-Agent with contact details: https://www.sec.gov/os/accessing-edgar-data
   const ua = process.env.SEC_USER_AGENT;
   if (!ua) {
-    return Promise.resolve<SourceResult>({ articles: [], requests: 0, failures: [{ query: 'SEC EDGAR', error: 'SEC_USER_AGENT not set; skipped' }] });
+    return Promise.resolve<SourceResult>({ articles: [], requests: 0, perQuery: {}, failures: [{ query: 'SEC EDGAR', error: 'SEC_USER_AGENT not set; skipped' }] });
   }
   return runAll(secQueries(today), (body, query) => {
     const data = JSON.parse(body) as {

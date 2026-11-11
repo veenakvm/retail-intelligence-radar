@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { fetchGoogleNews, fetchGdelt, fetchSec, fetchPressReleases, titleKey, type RawArticle, type SourceResult } from './sources.ts';
+import { fetchGoogleNews, fetchGdelt, fetchSec, fetchPressReleases, fetchNewsFeeds, titleKey, type RawArticle, type SourceResult } from './sources.ts';
 import { classifyAll, MODEL } from './classify.ts';
 import { MAX_CLASSIFY } from './config.ts';
 
@@ -10,7 +10,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 }
 const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 // GDELT is off by default: it rate-limits GitHub's shared runner IPs. Add it via the SOURCES input to try it.
-const only = (process.env.SOURCES || 'google_news,sec_edgar,press_release').split(',');
+const only = (process.env.SOURCES || 'google_news,news_feed,sec_edgar,press_release').split(',');
 
 async function main() {
   const { data: run, error: runError } = await db.from('collector_runs').insert({}).select().single();
@@ -24,6 +24,7 @@ async function main() {
     ['gdelt', fetchGdelt],
     ['sec_edgar', fetchSec],
     ['press_release', fetchPressReleases],
+    ['news_feed', fetchNewsFeeds],
   ];
   const collected: RawArticle[] = [];
   for (const [name, fn] of fetchers) {
@@ -33,6 +34,9 @@ async function main() {
     for (const f of r.failures) errors.push(`${name} [${f.query}]: ${f.error}`);
     collected.push(...r.articles);
     console.log(`${name}: ${r.articles.length} articles from ${r.requests} requests, ${r.failures.length} failed`);
+    if (name === 'news_feed' || name === 'press_release') {
+      for (const [q, n] of Object.entries(r.perQuery)) console.log(`  ${q}: ${n}`);
+    }
   }
 
   // 2. De-duplicate within this run, then insert (existing URLs / titles are skipped by the unique indexes).

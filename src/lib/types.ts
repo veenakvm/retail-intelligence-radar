@@ -8,7 +8,7 @@ export interface Signal {
   url: string;
   title: string;
   publisher: string;
-  source_type: 'google_news' | 'gdelt' | 'sec_edgar' | 'press_release';
+  source_type: 'google_news' | 'gdelt' | 'sec_edgar' | 'press_release' | 'news_feed';
   source_query: string;
   snippet: string;
   published_at: string | null;
@@ -72,6 +72,7 @@ export const SOURCE_LABELS: Record<Signal['source_type'], string> = {
   gdelt: 'GDELT',
   sec_edgar: 'SEC EDGAR',
   press_release: 'Press release',
+  news_feed: 'Trade & business news',
 };
 
 export interface Contact {

@@ -21,6 +21,12 @@ export const MARKETS = [
   { name: 'USA', hl: 'en-US', gl: 'US', ceid: 'US:en', gdeltCountry: 'US' },
 ] as const;
 
+/** Extra Google News searches for named organisations and reports. */
+export const EXTRA_GOOGLE_QUERIES = [
+  { q: '"Retailers Association of India" when:7d', market: 'India', label: 'Retailers Association of India (RAI)' },
+  { q: '"India Retail Index" OR "RAI retail business survey" when:30d', market: 'India', label: 'RAI retail reports' },
+];
+
 /** Google News RSS search feeds: one per market x sector x signal. */
 export function googleNewsFeeds(): { url: string; query: string }[] {
   const feeds: { url: string; query: string }[] = [];
@@ -32,6 +38,10 @@ export function googleNewsFeeds(): { url: string; query: string }[] {
         feeds.push({ url, query: `${m.name} · ${s.name} · ${sig.name}` });
       }
     }
+  }
+  for (const x of EXTRA_GOOGLE_QUERIES) {
+    const m = MARKETS.find(mk => mk.name === x.market)!;
+    feeds.push({ url: `https://news.google.com/rss/search?q=${encodeURIComponent(x.q)}&hl=${m.hl}&gl=${m.gl}&ceid=${m.ceid}`, query: x.label });
   }
   return feeds;
 }
@@ -70,5 +80,41 @@ export const PRESS_FEEDS = [
   { url: 'https://www.prnewswire.com/rss/consumer-products-retail-latest-news/consumer-products-retail-latest-news-list.rss', query: 'PR Newswire · Consumer products & retail' },
 ];
 
+/**
+ * Trade and business news RSS feeds. `filter: true` keeps only headlines mentioning retail/consumer terms
+ * (for general business feeds); retail-specific feeds keep everything.
+ */
+export const NEWS_FEEDS: { url: string; query: string; filter?: boolean }[] = [
+  // India: Economic Times
+  { url: 'https://retail.economictimes.indiatimes.com/rss/topstories', query: 'ET Retail · Top stories' },
+  { url: 'https://retail.economictimes.indiatimes.com/rss/recentstories', query: 'ET Retail · Latest' },
+  { url: 'https://economictimes.indiatimes.com/industry/services/retail/rssfeeds/13358727.cms', query: 'Economic Times · Retail' },
+  { url: 'https://economictimes.indiatimes.com/industry/cons-products/rssfeeds/13358759.cms', query: 'Economic Times · Consumer products', filter: true },
+  { url: 'https://economictimes.indiatimes.com/tech/funding/rssfeeds/78570530.cms', query: 'ET Tech · Funding', filter: true },
+  // India: business and startup media
+  { url: 'https://www.livemint.com/rss/companies', query: 'Mint · Companies', filter: true },
+  { url: 'https://www.business-standard.com/rss/companies-101.rss', query: 'Business Standard · Companies', filter: true },
+  { url: 'https://www.moneycontrol.com/rss/business.xml', query: 'Moneycontrol · Business', filter: true },
+  { url: 'https://inc42.com/feed/', query: 'Inc42', filter: true },
+  { url: 'https://yourstory.com/feed', query: 'YourStory', filter: true },
+  { url: 'https://entrackr.com/feed/', query: 'Entrackr', filter: true },
+  { url: 'https://www.indianretailer.com/rss/news.xml', query: 'Indian Retailer' },
+  { url: 'https://www.fashionnetwork.com/rss/feed/in', query: 'FashionNetwork India', filter: true },
+  // USA: retail trade media
+  { url: 'https://www.retaildive.com/feeds/news/', query: 'Retail Dive' },
+  { url: 'https://www.grocerydive.com/feeds/news/', query: 'Grocery Dive' },
+  { url: 'https://www.modernretail.co/feed/', query: 'Modern Retail' },
+  { url: 'https://chainstoreage.com/rss.xml', query: 'Chain Store Age' },
+  { url: 'https://www.retailtouchpoints.com/feed', query: 'Retail TouchPoints' },
+  { url: 'https://www.glossy.co/feed/', query: 'Glossy (beauty & fashion)' },
+];
+
+/** Headline keywords that keep an article from a general business feed. */
+export const RETAIL_KEYWORDS = [
+  'retail', 'retailer', 'store', 'stores', 'outlet', 'mall', 'brand', 'd2c', 'dtc', 'e-commerce', 'ecommerce', 'quick commerce',
+  'q-commerce', 'grocery', 'supermarket', 'hypermarket', 'jewel', 'gold', 'apparel', 'fashion', 'clothing', 'footwear', 'beauty',
+  'cosmetic', 'skincare', 'personal care', 'electronics', 'consumer', 'fmcg', 'omnichannel', 'marketplace', 'shopping',
+];
+
 /** Most articles classified per run (cost control). Override with MAX_CLASSIFY. */
-export const MAX_CLASSIFY = Number(process.env.MAX_CLASSIFY || 200);
+export const MAX_CLASSIFY = Number(process.env.MAX_CLASSIFY || 300);
