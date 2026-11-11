@@ -34,8 +34,8 @@ async function main() {
     for (const f of r.failures) errors.push(`${name} [${f.query}]: ${f.error}`);
     collected.push(...r.articles);
     console.log(`${name}: ${r.articles.length} articles from ${r.requests} requests, ${r.failures.length} failed`);
-    if (name === 'news_feed' || name === 'press_release') {
-      for (const [q, n] of Object.entries(r.perQuery)) console.log(`  ${q}: ${n}`);
+    for (const [q, n] of Object.entries(r.perQuery)) {
+      if (name !== 'google_news' || q.startsWith('Regional') || q.includes('RAI') || q.includes('Retailers Association')) console.log(`  ${q}: ${n}`);
     }
   }
 

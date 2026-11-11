@@ -88,6 +88,8 @@ For each article, using only the headline, snippet and publisher you are given:
 - investor, amount, currency, deal_status: only when stated in the text; otherwise "" (or null for amount). Never estimate amounts. amount is the number in the stated currency's units (e.g. 25000000 for "$25 million", 1500000000 for "Rs 150 crore").
 - confidence: how clearly the text supports your classification.
 
+Articles may be in Indian languages (Hindi, Tamil, Kannada and others). Always write company, summary, business_implication and fit_area in English; keep company names in their usual English spelling.
+
 Return one result per article, using the article's index.`;
 
 let client: Anthropic | null = null;
