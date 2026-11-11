@@ -41,10 +41,12 @@ export interface Opportunity {
   owner_id: string | null;
   next_action: string;
   notes: string;
+  primary_contact_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
   signal?: Pick<Signal, 'url' | 'title'> | null;
+  poc?: { full_name: string; role: string; phone: string; email: string } | null;
 }
 
 export interface TeamMember {

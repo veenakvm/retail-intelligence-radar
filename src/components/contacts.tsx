@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Linkedin, Mail, Pencil, Phone, Trash2, UserRound } from 'lucide-react';
+import { Linkedin, Mail, Pencil, Phone, Star, Trash2, UserRound } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Contact } from '../lib/types';
 import { ErrorNote } from './ui';
@@ -79,8 +79,9 @@ export function ContactForm({
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]!.toUpperCase()).join('') || '?';
 
 /** One contact with one-click email, call and LinkedIn. */
-export function ContactCard({ contact, onEdit, onDelete, showCompany }: {
+export function ContactCard({ contact, onEdit, onDelete, showCompany, isPrimary, onMakePrimary }: {
   contact: Contact; onEdit?: () => void; onDelete?: () => void; showCompany?: boolean;
+  isPrimary?: boolean; onMakePrimary?: () => void;
 }) {
   const icon = 'inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700';
   const link = 'flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-xs text-gray-700 hover:bg-brand-50 hover:text-brand-600';
@@ -91,10 +92,16 @@ export function ContactCard({ contact, onEdit, onDelete, showCompany }: {
           {contact.full_name ? initials(contact.full_name) : <UserRound className="h-4 w-4" />}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold leading-tight">{contact.full_name}</div>
+          <div className="flex flex-wrap items-center gap-1.5 text-sm font-semibold leading-tight">
+            {contact.full_name}
+            {isPrimary && <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Point of contact</span>}
+          </div>
           <div className="mt-0.5 text-xs text-gray-500">{[contact.role, showCompany ? contact.company : ''].filter(Boolean).join(' · ') || 'Role not set'}</div>
         </div>
         <div className="flex shrink-0">
+          {onMakePrimary && !isPrimary && (
+            <button className={`${icon} hover:text-amber-600`} onClick={onMakePrimary} title="Make point of contact" aria-label={`Make ${contact.full_name} the point of contact`}><Star className="h-3.5 w-3.5" /></button>
+          )}
           {onEdit && <button className={icon} onClick={onEdit} title="Edit contact" aria-label={`Edit ${contact.full_name}`}><Pencil className="h-3.5 w-3.5" /></button>}
           {onDelete && <button className={`${icon} hover:text-red-600`} onClick={onDelete} title="Delete contact" aria-label={`Delete ${contact.full_name}`}><Trash2 className="h-3.5 w-3.5" /></button>}
         </div>

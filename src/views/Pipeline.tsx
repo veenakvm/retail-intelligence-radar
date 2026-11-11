@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Columns3, Download, ExternalLink, List, Plus, UserPlus, Users } from 'lucide-react';
+import { Columns3, Download, ExternalLink, List, Phone, Plus, UserPlus, UserRound, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useQuery, useTeam } from '../lib/data';
 import { downloadCsv, formatDate, timeAgo } from '../lib/format';
@@ -38,8 +38,14 @@ export default function Pipeline({ openNew, onNewHandled }: { openNew?: boolean;
   useEffect(() => { try { localStorage.setItem('pipelineLayout', layout); } catch { /* private mode */ } }, [layout]);
   useEffect(() => { if (openNew) { setAdding(true); onNewHandled?.(); } }, [openNew, onNewHandled]);
 
-  const { data, error, loading, reload } = useQuery<OppWithCount[]>(() =>
-    supabase.from('opportunities').select('*, signal:signals(url, title), contacts(count)').order('updated_at', { ascending: false }), []);
+  const { data, error, loading, reload } = useQuery<OppWithCount[]>(async () => {
+    const full = await supabase.from('opportunities')
+      .select('*, signal:signals(url, title), contacts:contacts!contacts_opportunity_id_fkey(count), poc:contacts!opportunities_primary_contact_id_fkey(full_name, role, phone, email)')
+      .order('updated_at', { ascending: false });
+    if (!full.error) return full;
+    // Before migration 003 there is no point-of-contact column.
+    return supabase.from('opportunities').select('*, signal:signals(url, title), contacts(count)').order('updated_at', { ascending: false });
+  }, []);
 
   const rows = useMemo(() => (data ?? []).filter(o =>
     (!mine || o.owner_id === me) &&
@@ -128,6 +134,7 @@ export default function Pipeline({ openNew, onNewHandled }: { openNew?: boolean;
                         </div>
                         {o.trigger && <p className="mt-1 line-clamp-2 text-[11px] text-gray-600">{o.trigger}</p>}
                         {o.next_action && <p className="mt-2 line-clamp-2 text-[11px] text-gray-500"><span className="font-semibold text-gray-600">Next:</span> {o.next_action}</p>}
+                        {o.poc && <PocLine poc={o.poc} />}
                         <div className="mt-2 flex items-center gap-2 text-[10px] text-gray-500">
                           <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {contactCount(o)}</span>
                           <span className="truncate">{memberName(o.owner_id) || 'Unassigned'}</span>
@@ -146,7 +153,7 @@ export default function Pipeline({ openNew, onNewHandled }: { openNew?: boolean;
           <table className="w-full min-w-[980px]">
             <thead>
               <tr>
-                <th className="th">Account</th><th className="th">Trigger / hypothesis</th><th className="th">Contacts</th>
+                <th className="th">Account</th><th className="th">Trigger / hypothesis</th><th className="th">Point of contact</th>
                 <th className="th">Priority</th><th className="th">Stage</th><th className="th">Owner</th><th className="th">Next action</th>
               </tr>
             </thead>
@@ -158,7 +165,12 @@ export default function Pipeline({ openNew, onNewHandled }: { openNew?: boolean;
                     <div className="text-[11px] text-gray-500">Updated {formatDate(o.updated_at)}</div>
                   </td>
                   <td className="td max-w-[280px]">{o.trigger}{o.fit && <div className="mt-1 text-[11px] text-gray-500">Fit: {o.fit}</div>}</td>
-                  <td className="td"><button className="flex items-center gap-1 text-brand-600 hover:underline" onClick={() => setOpenId(o.id)}><Users className="h-3.5 w-3.5" />{contactCount(o)}</button></td>
+                  <td className="td min-w-[170px]">
+                    {o.poc ? <PocLine poc={o.poc} /> : <span className="text-gray-400">—</span>}
+                    <button className="mt-1 flex items-center gap-1 text-[11px] text-brand-600 hover:underline" onClick={() => setOpenId(o.id)}>
+                      <Users className="h-3 w-3" />{contactCount(o)} contact{contactCount(o) === 1 ? '' : 's'}
+                    </button>
+                  </td>
                   <td className="td"><PrioritySelect value={o.priority} onChange={v => update(o.id, { priority: v }, 'Priority updated')} /></td>
                   <td className="td"><StageSelect value={o.stage} onChange={v => update(o.id, { stage: v }, 'Stage updated')} /></td>
                   <td className="td"><OwnerSelect team={team.data ?? []} value={o.owner_id} onChange={v => update(o.id, { owner_id: v }, 'Owner updated')} /></td>
@@ -183,6 +195,24 @@ export default function Pipeline({ openNew, onNewHandled }: { openNew?: boolean;
           onUpdate={(patch, msg) => update(open.id, patch, msg)} />
       )}
     </>
+  );
+}
+
+/** Point of contact: name, role and a tap-to-call phone number. */
+function PocLine({ poc }: { poc: NonNullable<Opportunity['poc']> }) {
+  return (
+    <div className="mt-2 flex gap-1.5 rounded-md bg-[#f4f7fb] px-2 py-1.5 text-[11px]">
+      <UserRound className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-500" />
+      <div className="min-w-0">
+        <div className="truncate"><span className="font-semibold text-gray-800">{poc.full_name}</span>{poc.role ? <span className="text-gray-500"> · {poc.role}</span> : null}</div>
+        {poc.phone && (
+          <a href={`tel:${poc.phone.replace(/\s+/g, '')}`} onClick={e => e.stopPropagation()}
+            className="mt-0.5 inline-flex items-center gap-1 font-semibold text-brand-600 hover:underline" title={`Call ${poc.full_name}`}>
+            <Phone className="h-3 w-3" />{poc.phone}
+          </a>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -259,6 +289,14 @@ function OpportunityPanel({ opp, team, memberName, onClose, onChange, onUpdate }
 
       {tab === 'details' && (
         <form className="space-y-3" onSubmit={e => { e.preventDefault(); onUpdate(form, 'Saved'); }}>
+          <div>
+            <label className="label">Point of contact</label>
+            {opp.poc ? <PocLine poc={opp.poc} /> : (
+              <button type="button" className="mt-1 flex items-center gap-1 text-xs text-brand-600 hover:underline" onClick={() => { setTab('contacts'); setAddingContact(true); }}>
+                <UserPlus className="h-3.5 w-3.5" /> Add a point of contact
+              </button>
+            )}
+          </div>
           <div><label className="label">Trigger / hypothesis</label><textarea className="field min-h-[64px]" value={form.trigger} onChange={e => setForm({ ...form, trigger: e.target.value })} /></div>
           {opp.signal && (
             <a href={opp.signal.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-brand-600 hover:underline">
@@ -284,7 +322,13 @@ function OpportunityPanel({ opp, team, memberName, onClose, onChange, onUpdate }
                 contactId={editing?.id}
                 lockCompany
                 onCancel={() => { setAddingContact(false); setEditing(null); }}
-                onSaved={c => { toast(editing ? 'Contact saved' : `${c.full_name} added`); setAddingContact(false); setEditing(null); contacts.reload(); onChange(); }}
+                onSaved={async c => {
+                  if (!editing && !opp.primary_contact_id) {
+                    await supabase.from('opportunities').update({ primary_contact_id: c.id }).eq('id', opp.id);
+                  }
+                  toast(editing ? 'Contact saved' : `${c.full_name} added${!editing && !opp.primary_contact_id ? ' as point of contact' : ''}`);
+                  setAddingContact(false); setEditing(null); contacts.reload(); onChange();
+                }}
               />
             </div>
           ) : (
@@ -294,7 +338,9 @@ function OpportunityPanel({ opp, team, memberName, onClose, onChange, onUpdate }
           {contacts.loading ? <Spinner /> : (contacts.data ?? []).length === 0 && !addingContact ? (
             <p className="py-4 text-center text-xs text-gray-500">No contacts yet. Add the people you are talking to, or plan to reach.</p>
           ) : (contacts.data ?? []).map(c => (
-            <ContactCard key={c.id} contact={c} onEdit={() => setEditing(c)} onDelete={() => removeContact(c)} />
+            <ContactCard key={c.id} contact={c} onEdit={() => setEditing(c)} onDelete={() => removeContact(c)}
+              isPrimary={opp.primary_contact_id === c.id}
+              onMakePrimary={() => onUpdate({ primary_contact_id: c.id }, `${c.full_name} is now the point of contact`)} />
           ))}
         </div>
       )}
@@ -332,28 +378,51 @@ function describeChange(change: OpportunityActivity['change'], memberName: (id: 
 
 export function AddOpportunityDialog({ onClose, onSaved }: { onClose: () => void; onSaved: (id: string) => void }) {
   const [f, setF] = useState({ company: '', trigger: '', fit: '', priority: 'Medium', next_action: 'Research account and map decision-maker' });
+  const [poc, setPoc] = useState({ full_name: '', role: '', phone: '', email: '' });
   const [err, setErr] = useState('');
+  const [saving, setSaving] = useState(false);
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data, error } = await supabase.from('opportunities').insert({ ...f, company: f.company.trim() }).select('id').single();
-    if (error) setErr(error.message); else onSaved(data.id);
+    setErr('');
+    if (poc.email && !/^\S+@\S+\.\S+$/.test(poc.email.trim())) return setErr('The contact email does not look right.');
+    if ((poc.phone || poc.email || poc.role) && !poc.full_name.trim()) return setErr('Add the contact\'s name, or clear the contact fields.');
+    setSaving(true);
+    const company = f.company.trim();
+    const { data, error } = await supabase.from('opportunities').insert({ ...f, company }).select('id').single();
+    if (error) { setSaving(false); return setErr(error.message); }
+    if (poc.full_name.trim()) {
+      const { data: c, error: ce } = await supabase.from('contacts')
+        .insert({ company, opportunity_id: data.id, full_name: poc.full_name.trim(), role: poc.role.trim(), phone: poc.phone.trim(), email: poc.email.trim() })
+        .select('id').single();
+      if (!ce && c) await supabase.from('opportunities').update({ primary_contact_id: c.id }).eq('id', data.id);
+    }
+    setSaving(false);
+    onSaved(data.id);
   };
   return (
-    <Dialog title="Add opportunity" onClose={onClose}>
+    <Dialog title="Add opportunity" onClose={onClose} wide>
       <form onSubmit={save} className="space-y-3">
         <div><label className="label">Company / account *</label><input className="field" required autoFocus value={f.company} onChange={e => setF({ ...f, company: e.target.value })} /></div>
         <div><label className="label">Business trigger</label><input className="field" value={f.trigger} onChange={e => setF({ ...f, trigger: e.target.value })} placeholder="e.g. Six-city store expansion" /></div>
-        <div><label className="label">Potential AlgoShack fit</label><input className="field" value={f.fit} onChange={e => setF({ ...f, fit: e.target.value })} placeholder="e.g. POS and omnichannel testing" /></div>
+        <div><label className="label">Potential fit</label><input className="field" value={f.fit} onChange={e => setF({ ...f, fit: e.target.value })} placeholder="e.g. POS and omnichannel testing" /></div>
         <div className="grid grid-cols-2 gap-3">
           <div><label className="label">Priority</label>
             <select className="field" value={f.priority} onChange={e => setF({ ...f, priority: e.target.value })}>{PRIORITIES.map(p => <option key={p}>{p}</option>)}</select></div>
           <div><label className="label">Next action</label><input className="field" value={f.next_action} onChange={e => setF({ ...f, next_action: e.target.value })} /></div>
         </div>
+        <fieldset className="rounded-xl border border-line p-3">
+          <legend className="px-1 text-xs font-semibold text-gray-600">Point of contact (optional)</legend>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><label className="label">Name</label><input className="field" value={poc.full_name} onChange={e => setPoc({ ...poc, full_name: e.target.value })} /></div>
+            <div><label className="label">Role / title</label><input className="field" value={poc.role} onChange={e => setPoc({ ...poc, role: e.target.value })} placeholder="e.g. CIO" /></div>
+            <div><label className="label">Phone</label><input className="field" type="tel" value={poc.phone} onChange={e => setPoc({ ...poc, phone: e.target.value })} placeholder="+91 98450 12345" /></div>
+            <div><label className="label">Email</label><input className="field" type="email" value={poc.email} onChange={e => setPoc({ ...poc, email: e.target.value })} placeholder="name@company.com" /></div>
+          </div>
+        </fieldset>
         {err && <ErrorNote message={err} />}
-        <p className="text-[11px] text-gray-500">After saving, the opportunity opens so you can add contacts straight away.</p>
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" className="btn" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn-primary">Add opportunity</button>
+          <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Add opportunity'}</button>
         </div>
       </form>
     </Dialog>
