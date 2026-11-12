@@ -91,7 +91,14 @@ async function main() {
           .limit(MAX_CLASSIFY);
     if (rescore) console.log(`Re-scoring ${pending?.length ?? 0} relevant articles without a score explanation`);
     let hasReasonColumns = true;
-    const { results, errors: classifyErrors } = await classifyAll(pending ?? []);
+    let results: Awaited<ReturnType<typeof classifyAll>>['results'] = new Map();
+    let classifyErrors: string[] = [];
+    try {
+      ({ results, errors: classifyErrors } = await classifyAll(pending ?? []));
+    } catch (e) {
+      classifyErrors = [(e as Error).message];
+      console.log((e as Error).message);
+    }
     errors.push(...classifyErrors.map(e => 'classify: ' + e));
     const now = new Date().toISOString();
     for (const [id, c] of results) {

@@ -124,7 +124,13 @@ Deno.serve(async (req) => {
   } catch (e) {
     if (e instanceof Anthropic.RateLimitError) return json({ error: 'The AI service is busy. Try again in a minute.' }, 429);
     if (e instanceof Anthropic.AuthenticationError) return json({ error: 'AI is not configured (ANTHROPIC_API_KEY).' }, 500);
-    if (e instanceof Anthropic.APIError) return json({ error: `AI error ${e.status}` }, 502);
+    if (e instanceof Anthropic.APIError) {
+      // Surface the common account problems in plain words.
+      if (/credit balance is too low/i.test(e.message)) {
+        return json({ error: 'The Anthropic account is out of credit. An admin needs to add credit at console.anthropic.com → Billing, then try again.' }, 402);
+      }
+      return json({ error: `AI error ${e.status}: ${e.message.slice(0, 200)}` }, 502);
+    }
     return json({ error: 'Unexpected error' }, 500);
   }
 });

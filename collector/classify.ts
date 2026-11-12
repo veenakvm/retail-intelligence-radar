@@ -147,6 +147,9 @@ export async function classifyAll(articles: ArticleToClassify[]) {
         for (const [id, c] of await classifyBatch(batch)) results.set(id, c);
       } catch (e) {
         if (e instanceof Anthropic.AuthenticationError) throw e;
+        if (e instanceof Anthropic.APIError && /credit balance is too low/i.test(e.message)) {
+          throw new Error('Anthropic account is out of credit: add credit at console.anthropic.com → Billing. Articles were saved and will be classified on the next run.');
+        }
         errors.push(e instanceof Anthropic.APIError ? `API ${e.status}: ${e.message}` : (e as Error).message);
       }
     }
