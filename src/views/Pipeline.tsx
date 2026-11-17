@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Columns3, Download, ExternalLink, List, Phone, Plus, Send, UserPlus, UserRound, Users } from 'lucide-react';
+import { Columns3, Download, ExternalLink, List, Phone, Plus, Search, Send, Sparkles, UserPlus, UserRound, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useQuery, useTeam } from '../lib/data';
 import { downloadCsv, formatDate, timeAgo } from '../lib/format';
@@ -8,6 +8,7 @@ import { Empty, ErrorNote, PageHeader, Spinner, useToast } from '../components/u
 import { Dialog, SidePanel } from '../components/overlay';
 import { ContactCard, ContactForm, emptyContact } from '../components/contacts';
 import { OutreachDialog } from '../components/outreach';
+import { FindContactsDialog } from '../components/apollo';
 
 const PRIORITY_STYLE: Record<string, string> = {
   High: 'bg-red-50 text-red-700',
@@ -131,7 +132,10 @@ export default function Pipeline({ openNew, onNewHandled }: { openNew?: boolean;
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="text-[13px] font-bold leading-snug">{o.company}</div>
-                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${PRIORITY_STYLE[o.priority]}`}>{o.priority}</span>
+                          <span className="flex shrink-0 gap-1">
+                            {o.auto_created && <span className="flex items-center gap-0.5 rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-600" title="Added automatically from a high-fit signal"><Sparkles className="h-2.5 w-2.5" />Auto</span>}
+                            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${PRIORITY_STYLE[o.priority]}`}>{o.priority}</span>
+                          </span>
                         </div>
                         {o.trigger && <p className="mt-1 line-clamp-2 text-[11px] text-gray-600">{o.trigger}</p>}
                         {o.next_action && <p className="mt-2 line-clamp-2 text-[11px] text-gray-500"><span className="font-semibold text-gray-600">Next:</span> {o.next_action}</p>}
@@ -251,6 +255,7 @@ function OpportunityPanel({ opp, team, memberName, onClose, onChange, onUpdate }
   const [addingContact, setAddingContact] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
   const [outreach, setOutreach] = useState(false);
+  const [findingContacts, setFindingContacts] = useState(false);
   const contacts = useQuery<Contact[]>(() =>
     supabase.from('contacts').select('*').or(`opportunity_id.eq.${opp.id},company.ilike."${opp.company.replace(/["\\]/g, '')}"`).order('created_at'), [opp.id, opp.company]);
   const history = useQuery<OpportunityActivity[]>(() =>
@@ -342,7 +347,10 @@ function OpportunityPanel({ opp, team, memberName, onClose, onChange, onUpdate }
               />
             </div>
           ) : (
-            <button className="btn-primary w-full" onClick={() => setAddingContact(true)}><UserPlus className="h-3.5 w-3.5" /> Add contact at {opp.company}</button>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button className="btn-primary" onClick={() => setFindingContacts(true)}><Search className="h-3.5 w-3.5" /> Find in Apollo</button>
+              <button className="btn" onClick={() => setAddingContact(true)}><UserPlus className="h-3.5 w-3.5" /> Add manually</button>
+            </div>
           )}
           {contacts.error && <ErrorNote message={contacts.error.includes('contacts') ? 'Contacts are not set up yet: run supabase/migrations/002_contacts.sql in Supabase.' : contacts.error} />}
           {contacts.loading ? <Spinner /> : (contacts.data ?? []).length === 0 && !addingContact ? (
@@ -350,9 +358,19 @@ function OpportunityPanel({ opp, team, memberName, onClose, onChange, onUpdate }
           ) : (contacts.data ?? []).map(c => (
             <ContactCard key={c.id} contact={c} onEdit={() => setEditing(c)} onDelete={() => removeContact(c)}
               isPrimary={opp.primary_contact_id === c.id}
+              onToggleDoNotContact={async () => {
+                const { error } = await supabase.from('contacts').update({ do_not_contact: !c.do_not_contact }).eq('id', c.id);
+                if (error) toast(error.message.includes('do_not_contact') ? 'Run migration 005 in Supabase first' : 'Could not save: ' + error.message);
+                else { toast(c.do_not_contact ? 'Contact allowed again' : 'Marked as do not contact'); contacts.reload(); }
+              }}
               onMakePrimary={() => onUpdate({ primary_contact_id: c.id }, `${c.full_name} is now the point of contact`)} />
           ))}
         </div>
+      )}
+
+      {findingContacts && (
+        <FindContactsDialog company={opp.company} domain={opp.company_domain} opportunityId={opp.id}
+          onClose={() => setFindingContacts(false)} onSaved={() => { contacts.reload(); onChange(); }} />
       )}
 
       {tab === 'history' && (

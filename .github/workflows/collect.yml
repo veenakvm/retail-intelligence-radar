@@ -36,5 +36,6 @@ jobs:
           SEC_USER_AGENT: ${{ vars.SEC_USER_AGENT }}
           CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
           MAX_CLASSIFY: ${{ vars.MAX_CLASSIFY }}
+          AUTO_PIPELINE_MIN_FIT: ${{ vars.AUTO_PIPELINE_MIN_FIT }}
           SOURCES: ${{ inputs.sources }}
           RESCORE: ${{ inputs.rescore }}

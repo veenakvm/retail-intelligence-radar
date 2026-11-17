@@ -44,6 +44,8 @@ export interface Opportunity {
   next_action: string;
   notes: string;
   primary_contact_id: string | null;
+  auto_created?: boolean;
+  company_domain?: string;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -88,6 +90,9 @@ export interface Contact {
   linkedin_url: string;
   notes: string;
   source: string;
+  apollo_id?: string | null;
+  do_not_contact?: boolean;
+  phone_status?: string;
   created_by: string | null;
   created_at: string;
   updated_at: string;

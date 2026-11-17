@@ -3,6 +3,7 @@ import { fetchGoogleNews, fetchGdelt, fetchSec, fetchPressReleases, fetchNewsFee
 import { classifyAll, MODEL } from './classify.ts';
 import { MAX_CLASSIFY } from './config.ts';
 import { SERVICE_LINE_NAMES, toServiceLine } from '../src/lib/serviceLines.ts';
+import { AUTO_PIPELINE_MIN_FIT, AUTO_PIPELINE_MAX_PER_RUN } from '../src/lib/icp.ts';
 
 const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY } = process.env;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -131,6 +132,46 @@ async function main() {
   }
 
   // A re-scoring run with no sources selected collects nothing on purpose.
+  // Automatic lead pipeline: high-fit signals from the last 7 days become opportunities,
+  // one open opportunity per company.
+  const minFit = Number(process.env.AUTO_PIPELINE_MIN_FIT || AUTO_PIPELINE_MIN_FIT);
+  let autoCreated = 0;
+  if (minFit > 0 && minFit <= 100) {
+    const { data: hot } = await db.from('signals')
+      .select('id, company, summary, title, fit_area, fit_score, score_improvement')
+      .eq('relevant', true).gte('fit_score', minFit).not('company', 'is', null)
+      .gte('published_at', new Date(Date.now() - 7 * 86400000).toISOString())
+      .order('fit_score', { ascending: false }).limit(100);
+    const { data: open } = await db.from('opportunities').select('company, signal_id').neq('stage', 'Closed');
+    const taken = new Set((open ?? []).map(o => String(o.company).trim().toLowerCase()));
+    const usedSignals = new Set((open ?? []).map(o => o.signal_id).filter(Boolean));
+    for (const sg of hot ?? []) {
+      if (autoCreated >= AUTO_PIPELINE_MAX_PER_RUN) break;
+      const key = String(sg.company).trim().toLowerCase();
+      if (!key || taken.has(key) || usedSignals.has(sg.id)) continue;
+      const row: Record<string, unknown> = {
+        company: sg.company,
+        signal_id: sg.id,
+        trigger: sg.summary || sg.title,
+        fit: sg.fit_area || '',
+        priority: (sg.fit_score ?? 0) >= 88 ? 'High' : 'Medium',
+        stage: 'Research',
+        next_action: sg.score_improvement || 'Validate the signal and identify the decision-maker',
+        notes: `Added automatically by the Radar from a fit ${sg.fit_score}/100 signal.`,
+        auto_created: true,
+      };
+      let { error } = await db.from('opportunities').insert(row);
+      if (error && /auto_created/.test(error.message)) {  // before migration 005
+        delete row.auto_created;
+        ({ error } = await db.from('opportunities').insert(row));
+      }
+      if (error) { errors.push('auto-pipeline: ' + error.message); continue; }
+      taken.add(key);
+      autoCreated++;
+    }
+    console.log(`Auto-pipeline: ${autoCreated} new opportunities (fit >= ${minFit})`);
+  }
+
   // Map older free-text fit labels onto the fixed service-line list (cheap; only touches non-standard rows).
   const { data: labelled, error: labelError } = await db.from('signals').select('id, fit_area')
     .not('fit_area', 'is', null).order('fetched_at', { ascending: false }).limit(5000);

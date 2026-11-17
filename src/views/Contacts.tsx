@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Download, Search, UserPlus } from 'lucide-react';
+import { Download, Search, Sparkles, UserPlus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/data';
 import { downloadCsv } from '../lib/format';
@@ -7,6 +7,7 @@ import type { Contact } from '../lib/types';
 import { Empty, ErrorNote, PageHeader, Spinner, useToast } from '../components/ui';
 import { Dialog } from '../components/overlay';
 import { ContactCard, ContactForm, emptyContact } from '../components/contacts';
+import { FindContactsDialog } from '../components/apollo';
 
 export default function Contacts({ openNew, onNewHandled }: { openNew?: boolean; onNewHandled?: () => void }) {
   const toast = useToast();
@@ -14,6 +15,7 @@ export default function Contacts({ openNew, onNewHandled }: { openNew?: boolean;
   const [company, setCompany] = useState('');
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
+  const [apollo, setApollo] = useState(false);
 
   useEffect(() => { if (openNew) { setAdding(true); onNewHandled?.(); } }, [openNew, onNewHandled]);
 
@@ -50,7 +52,8 @@ export default function Contacts({ openNew, onNewHandled }: { openNew?: boolean;
       <PageHeader eyebrow="Relationships" title="Contacts"
         sub="People at target accounts. Add anyone directly; contacts at a company also appear on its opportunity."
         actions={<>
-          <button className="btn-primary" onClick={() => setAdding(true)}><UserPlus className="h-3.5 w-3.5" /> Add contact</button>
+          <button className="btn-primary" onClick={() => setApollo(true)}><Sparkles className="h-3.5 w-3.5" /> Find in Apollo</button>
+          <button className="btn" onClick={() => setAdding(true)}><UserPlus className="h-3.5 w-3.5" /> Add contact</button>
           <button className="btn" onClick={exportCsv} disabled={!rows.length}><Download className="h-3.5 w-3.5" /> Export CSV</button>
         </>} />
 
@@ -82,13 +85,22 @@ export default function Contacts({ openNew, onNewHandled }: { openNew?: boolean;
             <section key={name}>
               <h2 className="mb-2 flex items-baseline gap-2 text-sm font-bold">{name}<span className="text-xs font-normal text-gray-500">{list.length}</span></h2>
               <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                {list.map(c => <ContactCard key={c.id} contact={c} onEdit={() => setEditing(c)} onDelete={() => remove(c)} />)}
+                {list.map(c => <ContactCard key={c.id} contact={c} onEdit={() => setEditing(c)} onDelete={() => remove(c)}
+                  onToggleDoNotContact={async () => {
+                    const { error: e } = await supabase.from('contacts').update({ do_not_contact: !c.do_not_contact }).eq('id', c.id);
+                    if (e) toast(e.message.includes('do_not_contact') ? 'Run migration 005 in Supabase first' : 'Could not save: ' + e.message);
+                    else { toast(c.do_not_contact ? 'Contact allowed again' : 'Marked as do not contact'); reload(); }
+                  }} />)}
               </div>
             </section>
           ))}
         </div>
       )}
 
+      {apollo && (
+        <FindContactsDialog company={company} opportunityId={company ? linkToOpportunity(company) : null}
+          onClose={() => setApollo(false)} onSaved={reload} />
+      )}
       {(adding || editing) && (
         <Dialog title={editing ? `Edit ${editing.full_name}` : 'Add contact'} wide onClose={() => { setAdding(false); setEditing(null); }}>
           <ContactForm

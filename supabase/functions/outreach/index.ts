@@ -23,7 +23,8 @@ Rules:
 - Never invent client names, results, numbers, awards or partnerships. Where a proof point would help, write [Add a real client result, only if true].
 - Use [Your name] for the sender. Use the contact's first name if given, otherwise [First name].
 - Limits: LinkedIn connection note under 280 characters; LinkedIn follow-up under 450 characters; email body under 120 words; call opener under 45 words; voicemail under 50 words.
-- Facts come only from the signal provided. If the signal is thin, keep claims general.`;
+- Facts come only from the signal provided. If the signal is thin, keep claims general.
+- End the email with one short, polite opt-out line, e.g. "If this isn't relevant, just say so and I won't follow up."`;
 
 const OUTPUT_SCHEMA = {
   type: 'object',

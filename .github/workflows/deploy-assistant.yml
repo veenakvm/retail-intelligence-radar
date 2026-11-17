@@ -3,7 +3,7 @@ name: Deploy AI functions
 on:
   push:
     branches: [main]
-    paths: ['supabase/functions/**', 'src/lib/serviceLines.ts']
+    paths: ['supabase/functions/**', 'src/lib/serviceLines.ts', 'src/lib/icp.ts']
   workflow_dispatch:
 
 jobs:
@@ -19,10 +19,16 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
+          RADAR_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          supabase secrets set --yes --project-ref "$PROJECT_REF" ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY"
+          supabase secrets set --yes --project-ref "$PROJECT_REF" ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" RADAR_SERVICE_KEY="$RADAR_SERVICE_KEY"
+          if [ -n "$APOLLO_API_KEY" ]; then supabase secrets set --yes --project-ref "$PROJECT_REF" APOLLO_API_KEY="$APOLLO_API_KEY"; fi
           # The function checks the signed-in user itself (works with new Supabase keys).
           supabase functions deploy ask --yes --project-ref "$PROJECT_REF" --no-verify-jwt
           # The outreach function shares the service-line definitions with the web app.
           cp src/lib/serviceLines.ts supabase/functions/outreach/serviceLines.ts
           supabase functions deploy outreach --yes --project-ref "$PROJECT_REF" --no-verify-jwt
+          # The Apollo function shares the ICP settings with the web app; Apollo calls it back for phone numbers.
+          cp src/lib/icp.ts supabase/functions/apollo/icp.ts
+          supabase functions deploy apollo --yes --project-ref "$PROJECT_REF" --no-verify-jwt

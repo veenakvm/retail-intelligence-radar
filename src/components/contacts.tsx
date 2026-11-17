@@ -79,9 +79,9 @@ export function ContactForm({
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]!.toUpperCase()).join('') || '?';
 
 /** One contact with one-click email, call and LinkedIn. */
-export function ContactCard({ contact, onEdit, onDelete, showCompany, isPrimary, onMakePrimary }: {
+export function ContactCard({ contact, onEdit, onDelete, showCompany, isPrimary, onMakePrimary, onToggleDoNotContact }: {
   contact: Contact; onEdit?: () => void; onDelete?: () => void; showCompany?: boolean;
-  isPrimary?: boolean; onMakePrimary?: () => void;
+  isPrimary?: boolean; onMakePrimary?: () => void; onToggleDoNotContact?: () => void;
 }) {
   const icon = 'inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700';
   const link = 'flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-xs text-gray-700 hover:bg-brand-50 hover:text-brand-600';
@@ -95,6 +95,8 @@ export function ContactCard({ contact, onEdit, onDelete, showCompany, isPrimary,
           <div className="flex flex-wrap items-center gap-1.5 text-sm font-semibold leading-tight">
             {contact.full_name}
             {isPrimary && <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Point of contact</span>}
+            {contact.do_not_contact && <span className="rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">Do not contact</span>}
+            {contact.apollo_id && <span className="rounded-full bg-[#eef2f8] px-1.5 py-0.5 text-[10px] font-semibold text-gray-600">Apollo</span>}
           </div>
           <div className="mt-0.5 text-xs text-gray-500">{[contact.role, showCompany ? contact.company : ''].filter(Boolean).join(' · ') || 'Role not set'}</div>
         </div>
@@ -116,6 +118,17 @@ export function ContactCard({ contact, onEdit, onDelete, showCompany, isPrimary,
             </a>
           )}
         </div>
+      )}
+      {contact.phone_status === 'requested' && !contact.phone && (
+        <p className="mt-2 text-[11px] text-gray-500">Mobile number requested from Apollo; it usually arrives within a few minutes. Refresh to see it.</p>
+      )}
+      {contact.phone_status === 'not_found' && !contact.phone && (
+        <p className="mt-2 text-[11px] text-gray-500">Apollo had no mobile number for this person.</p>
+      )}
+      {onToggleDoNotContact && (
+        <button className="mt-2 text-[11px] font-semibold text-gray-500 hover:text-red-700" onClick={onToggleDoNotContact}>
+          {contact.do_not_contact ? 'Allow contact again' : 'Mark as do not contact'}
+        </button>
       )}
       {(contact.source || contact.notes) && (
         <p className="mt-2 text-[11px] leading-relaxed text-gray-600">

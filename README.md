@@ -24,7 +24,11 @@ Public sources ──► Daily collector (GitHub Actions) ──► Claude class
 | 6 | SEC contact string, e.g. `AlgoShack Research research@algoshack.com` | GitHub variable `SEC_USER_AGENT` | SEC EDGAR (SEC requires it) |
 | 7 | GitHub Pages | Settings → Pages → Source: GitHub Actions | Hosting |
 
-Optional GitHub variables: `CLAUDE_MODEL` (default `claude-opus-5-5`), `MAX_CLASSIFY` (articles classified per day, default 200).
+| 8 | **Apollo API key** (optional) | GitHub secret `APOLLO_API_KEY` | "Find in Apollo" contact lookups |
+
+Contact lookups: people search is free; revealing a work email costs 1 Apollo credit, a mobile number about 9 more (it arrives a few minutes later through a callback). The ICP job titles and the automatic pipeline threshold are in `src/lib/icp.ts`.
+
+Optional GitHub variables: `CLAUDE_MODEL` (default `claude-opus-5-5`), `MAX_CLASSIFY` (articles classified per run, default 300), `AUTO_PIPELINE_MIN_FIT` (fit score that creates an opportunity automatically, default 80; 0 turns it off).
 
 Never commit the service-role key or the Anthropic key. The anon key is public by design (it ships in the web page); the database rules protect the data.
 

@@ -17,6 +17,7 @@
   },
   "include": [
     "collector",
+    "src/lib/icp.ts",
     "src/lib/serviceLines.ts"
   ]
 }
