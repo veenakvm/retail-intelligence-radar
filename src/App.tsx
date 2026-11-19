@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { Activity, BarChart3, BookOpen, ChevronDown, Megaphone, Contact as ContactIcon, Database, FileBarChart, LayoutDashboard, Swords, LogOut, Menu, Plus, Sparkles, Target, TrendingUp, X, type LucideIcon } from 'lucide-react';
+import { Activity, BarChart3, BookOpen, ChevronDown, Megaphone, Contact as ContactIcon, Database, FileBarChart, LayoutDashboard, Swords, LogOut, Menu, Plus, Sparkles, Target, TrendingUp, Workflow, X, type LucideIcon } from 'lucide-react';
 import { isConfigured, supabase } from './lib/supabase';
 import { ToastProvider, Spinner } from './components/ui';
 import Login, { SetPassword } from './views/Login';
@@ -15,11 +15,13 @@ import ServiceLines from './views/ServiceLines';
 import Playbook from './views/Playbook';
 import WeeklyReport from './views/WeeklyReport';
 import Competitors from './views/Competitors';
+import GtmWorkflows from './views/GtmWorkflows';
 
-export type View = 'home' | 'feed' | 'invest' | 'pipeline' | 'contacts' | 'services' | 'playbook' | 'assistant' | 'sources' | 'report' | 'competitors';
+export type View = 'home' | 'feed' | 'invest' | 'pipeline' | 'contacts' | 'services' | 'playbook' | 'assistant' | 'sources' | 'report' | 'competitors' | 'gtm';
 
 const NAV: { id: View; label: string; icon: LucideIcon }[] = [
   { id: 'home', label: 'Overview', icon: LayoutDashboard },
+  { id: 'gtm', label: 'GTM Workflows', icon: Workflow },
   { id: 'feed', label: 'Intelligence Feed', icon: Activity },
   { id: 'invest', label: 'Investment Radar', icon: TrendingUp },
   { id: 'pipeline', label: 'Opportunity Pipeline', icon: Target },
@@ -167,6 +169,7 @@ export default function App() {
             {view === 'sources' && <Sources />}
             {view === 'report' && <WeeklyReport />}
             {view === 'competitors' && <Competitors />}
+            {view === 'gtm' && <GtmWorkflows go={go} />}
           </div>
         </main>
       </div>
