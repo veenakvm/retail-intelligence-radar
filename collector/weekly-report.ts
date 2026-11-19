@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) { console.error('Supabase settings missing'); process.exit(1); }
 const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-const MODEL = process.env.CLAUDE_MODEL || 'claude-opus-5-5';
+const MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-5-5';
 
 const now = new Date();
 const weekAgo = new Date(now.getTime() - 7 * 86400000).toISOString();

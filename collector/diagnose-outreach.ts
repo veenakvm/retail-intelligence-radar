@@ -13,7 +13,7 @@ const variants: [string, Record<string, unknown>][] = [
 for (const [name, extra] of variants) {
   try {
     const r = await client.beta.messages.create({
-      model: process.env.CLAUDE_MODEL || 'claude-opus-5-5', max_tokens: 2000, system: 'Write short outreach.',
+      model: process.env.CLAUDE_MODEL || 'claude-sonnet-5-5', max_tokens: 2000, system: 'Write short outreach.',
       messages: [{ role: 'user', content: 'Draft outreach for: Forevermark India expands stores.' }],
       ...extra,
     } as Anthropic.Beta.MessageCreateParamsNonStreaming);

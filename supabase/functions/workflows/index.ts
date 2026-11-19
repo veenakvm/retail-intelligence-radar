@@ -9,7 +9,7 @@ import Anthropic from 'npm:@anthropic-ai/sdk@1';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { toServiceLine } from './serviceLines.ts';
 
-const MODEL = Deno.env.get('CLAUDE_MODEL') ?? 'claude-opus-5-5';
+const MODEL = Deno.env.get('CLAUDE_MODEL') || 'claude-sonnet-5-5';
 const STAGES = ['Research', 'To validate', 'Engaged', 'Qualified', 'Closed'];
 const cors = {
   'Access-Control-Allow-Origin': '*',

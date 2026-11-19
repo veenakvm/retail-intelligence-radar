@@ -4,7 +4,7 @@ import Anthropic from 'npm:@anthropic-ai/sdk@1';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { SERVICE_LINES, toServiceLine } from './serviceLines.ts';
 
-const MODEL = Deno.env.get('CLAUDE_MODEL') ?? 'claude-opus-5-5';
+const MODEL = Deno.env.get('CLAUDE_MODEL') || 'claude-sonnet-5-5';
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',

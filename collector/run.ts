@@ -91,11 +91,22 @@ async function main() {
           .order('published_at', { ascending: false, nullsFirst: false })
           .limit(MAX_CLASSIFY);
     if (rescore) console.log(`Re-scoring ${pending?.length ?? 0} relevant articles without a score explanation`);
+    // Free pre-filter: obvious market noise never reaches the AI.
+    const NOISE = /\b(share price|shares (rise|fall|jump|slump|surge|drop)|stock (price|market)|sensex|nifty|target price|buy or sell|stocks? to (buy|watch)|horoscope|gold rate|gold price|silver rate|petrol price|weather|cricket|ipl|box office|recipe)\b/i;
+    const noise = rescore ? [] : (pending ?? []).filter(a => NOISE.test(a.title));
+    if (noise.length) {
+      const ids = noise.map(a => a.id);
+      for (let i = 0; i < ids.length; i += 100) {
+        await db.from('signals').update({ relevant: false, classified_at: new Date().toISOString(), classifier_model: 'rule-filter' }).in('id', ids.slice(i, i + 100));
+      }
+      console.log(`Pre-filter: ${noise.length} market-noise headlines skipped without AI`);
+    }
+    const toClassify = (pending ?? []).filter(a => !noise.includes(a));
     let hasReasonColumns = true;
     let results: Awaited<ReturnType<typeof classifyAll>>['results'] = new Map();
     let classifyErrors: string[] = [];
     try {
-      ({ results, errors: classifyErrors } = await classifyAll(pending ?? []));
+      ({ results, errors: classifyErrors } = await classifyAll(toClassify));
     } catch (e) {
       classifyErrors = [(e as Error).message];
       console.log((e as Error).message);

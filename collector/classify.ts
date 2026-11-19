@@ -2,8 +2,12 @@ import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { SERVICE_LINES, SERVICE_LINE_NAMES } from '../src/lib/serviceLines.ts';
 
-export const MODEL = process.env.CLAUDE_MODEL || 'claude-opus-5-5';
-const BATCH_SIZE = 10;
+// Scoring is high-volume sorting and tagging, so it runs on the low-cost Haiku model by default.
+// Override with the CLASSIFY_MODEL repository variable (e.g. claude-sonnet-5-5).
+export const MODEL = process.env.CLASSIFY_MODEL || 'claude-haiku-5-5';
+// Server-side refusal fallback is not available on Haiku; only send it for models that support it.
+const SUPPORTS_FALLBACK = !/haiku/.test(MODEL);
+const BATCH_SIZE = 20;
 const CONCURRENCY = 3;
 
 export interface ArticleToClassify {
@@ -86,7 +90,7 @@ The team tracks investment, expansion, acquisition and technology signals from r
 For each article, using only the headline, snippet and publisher you are given:
 - relevant: true only if the article reports a specific event at a named retail or consumer-brand company in India or the USA that fits one of the four signal types. Opinion pieces, stock-price moves, listicles, store-closure-only news, non-retail companies and duplicates of generic market reports are not relevant.
 - company: the main company the event is about; "" if unclear.
-- summary: one factual sentence stating only what the article reports.
+- summary: one short factual sentence (under 30 words) stating only what the article reports.
 - business_implication: one sentence on what the event may require operationally (systems, rollouts, integrations). This is an inference; phrase it with "may" or "could".
 - fit_area: the single best-matching AlgoShack service line from this list, or "None" if not relevant:
 ${SERVICE_LINES.map(l => `  - ${l.name}: ${l.summary} Typical signals: ${l.signals.join('; ')}.`).join('\n')}
@@ -105,14 +109,13 @@ let client: Anthropic | null = null;
 async function classifyBatch(batch: ArticleToClassify[]): Promise<Map<string, Classification>> {
   client ??= new Anthropic();
   const lines = batch.map((a, i) =>
-    `<article index="${i}">\n<headline>${a.title}</headline>\n<publisher>${a.publisher}</publisher>\n<source>${a.source_type}</source>\n<published>${a.published_at ?? 'unknown'}</published>\n<snippet>${a.snippet || '(none)'}</snippet>\n</article>`
+    `<article index="${i}">\n<headline>${a.title}</headline>\n<publisher>${a.publisher}</publisher>\n<source>${a.source_type}</source>\n<published>${a.published_at ?? 'unknown'}</published>\n<snippet>${(a.snippet || '(none)').slice(0, 400)}</snippet>\n</article>`
   ).join('\n');
 
   const response = await client.beta.messages.create({
     model: MODEL,
-    max_tokens: 8000,
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
+    max_tokens: 16000,
+    ...(SUPPORTS_FALLBACK ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const } : {}),
     output_config: { effort: 'low', format: { type: 'json_schema', schema: RESULT_SCHEMA } },
     system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: `Classify these ${batch.length} articles.\n\n${lines}` }],

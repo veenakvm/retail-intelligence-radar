@@ -3,7 +3,7 @@
 import Anthropic from 'npm:@anthropic-ai/sdk@1';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const MODEL = Deno.env.get('CLAUDE_MODEL') ?? 'claude-opus-5-5';
+const MODEL = Deno.env.get('CLAUDE_MODEL') || 'claude-sonnet-5-5';
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -45,14 +45,14 @@ Deno.serve(async (req) => {
 
   // Retrieve: full-text matches first, topped up with the most recent high-fit signals.
   const terms = question.replace(/[^\p{L}\p{N}\s&-]/gu, ' ').split(/\s+/).filter(w => w.length > 2).slice(0, 12).join(' OR ');
-  const { data: matches, error: searchError } = await db.rpc('search_signals', { q: terms, max_results: 20 });
+  const { data: matches, error: searchError } = await db.rpc('search_signals', { q: terms, max_results: 15 });
   if (searchError) return json({ error: 'Search failed: ' + searchError.message }, 500);
   let records = (matches ?? []) as Signal[];
   if (records.length < 8) {
     const { data: recent } = await db.from('signals').select('*').eq('relevant', true)
-      .order('published_at', { ascending: false, nullsFirst: false }).limit(25);
+      .order('published_at', { ascending: false, nullsFirst: false }).limit(15);
     const ids = new Set(records.map(r => r.id));
-    records = [...records, ...((recent ?? []) as Signal[]).filter(r => !ids.has(r.id))].slice(0, 25);
+    records = [...records, ...((recent ?? []) as Signal[]).filter(r => !ids.has(r.id))].slice(0, 15);
   }
   if (!records.length) {
     return json({ answer: 'There are no classified signals in the database yet. Once the daily collector has run, ask again.', sources: [] });
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
         r.amount != null && `Amount: ${r.amount} ${r.currency ?? ''}`,
         r.business_implication && `Possible implication (AI inference): ${r.business_implication}`,
         r.fit_area && `Possible AlgoShack fit (AI inference): ${r.fit_area} (score ${r.fit_score ?? '-'}/100)`,
-        r.snippet && `Snippet: ${r.snippet}`,
+        !r.summary && r.snippet && `Snippet: ${r.snippet.slice(0, 400)}`,
       ].filter(Boolean).join('\n'),
     },
     citations: { enabled: true },
