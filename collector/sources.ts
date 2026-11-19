@@ -1,5 +1,5 @@
 import { XMLParser } from 'fast-xml-parser';
-import { googleNewsFeeds, gdeltQueries, secQueries, PRESS_FEEDS, NEWS_FEEDS, RETAIL_KEYWORDS } from './config.ts';
+import { googleNewsFeeds, gdeltQueries, secQueries, PRESS_FEEDS, NEWS_FEEDS, RETAIL_KEYWORDS, competitorFeeds } from './config.ts';
 
 export interface RawArticle {
   url: string;
@@ -116,6 +116,11 @@ export function fetchNewsFeeds() {
     const items = parseRss(b, 'news_feed', q);
     return filtered.has(q) ? items.filter(a => keywords.test(`${a.title} ${a.snippet}`)) : items;
   }, { delayMs: 800 });
+}
+
+/** Competitor news (stored separately; not classified). */
+export function fetchCompetitorNews() {
+  return runAll(competitorFeeds(), (b, q) => parseRss(b, 'google_news', q), { delayMs: 1200 });
 }
 
 export function fetchPressReleases() {

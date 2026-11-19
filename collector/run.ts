@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { fetchGoogleNews, fetchGdelt, fetchSec, fetchPressReleases, fetchNewsFeeds, titleKey, type RawArticle, type SourceResult } from './sources.ts';
+import { fetchGoogleNews, fetchGdelt, fetchSec, fetchPressReleases, fetchNewsFeeds, fetchCompetitorNews, titleKey, type RawArticle, type SourceResult } from './sources.ts';
 import { classifyAll, MODEL } from './classify.ts';
 import { MAX_CLASSIFY } from './config.ts';
 import { SERVICE_LINE_NAMES, toServiceLine } from '../src/lib/serviceLines.ts';
@@ -132,6 +132,19 @@ async function main() {
   }
 
   // A re-scoring run with no sources selected collects nothing on purpose.
+  // Competitor watch: stored in its own table, no AI cost. Skipped quietly before migration 006.
+  if (only.includes('google_news')) {
+    const comp = await fetchCompetitorNews();
+    const rows = comp.articles.map(a => ({
+      competitor: a.source_query, url: a.url, title: a.title, publisher: a.publisher, snippet: a.snippet, published_at: a.published_at,
+    }));
+    if (rows.length) {
+      const { error } = await db.from('competitor_news').upsert(rows, { onConflict: 'url', ignoreDuplicates: true });
+      if (error && !/competitor_news/.test(error.message)) errors.push('competitor news: ' + error.message);
+      else if (!error) console.log(`Competitor news: ${rows.length} articles checked`);
+    }
+  }
+
   // Automatic lead pipeline: high-fit signals from the last 7 days become opportunities,
   // one open opportunity per company.
   const minFit = Number(process.env.AUTO_PIPELINE_MIN_FIT || AUTO_PIPELINE_MIN_FIT);

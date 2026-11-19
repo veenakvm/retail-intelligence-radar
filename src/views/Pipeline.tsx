@@ -9,6 +9,7 @@ import { Dialog, SidePanel } from '../components/overlay';
 import { ContactCard, ContactForm, emptyContact } from '../components/contacts';
 import { OutreachDialog } from '../components/outreach';
 import { FindContactsDialog } from '../components/apollo';
+import { BriefTab, CallNotesTab, CloseDialog, ProposalTab } from '../components/workflows';
 
 const PRIORITY_STYLE: Record<string, string> = {
   High: 'bg-red-50 text-red-700',
@@ -35,6 +36,7 @@ export default function Pipeline({ openNew, onNewHandled }: { openNew?: boolean;
   const [openId, setOpenId] = useState<string | null>(null);
   const [me, setMe] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [closingId, setClosingId] = useState<string | null>(null);
 
   useEffect(() => { supabase.auth.getUser().then(({ data }) => setMe(data.user?.id ?? null)); }, []);
   useEffect(() => { try { localStorage.setItem('pipelineLayout', layout); } catch { /* private mode */ } }, [layout]);
@@ -59,6 +61,8 @@ export default function Pipeline({ openNew, onNewHandled }: { openNew?: boolean;
   };
 
   const update = async (id: string, patch: Partial<Opportunity>, msg?: string) => {
+    // Moving to Closed asks for won/lost and the reason first.
+    if (patch.stage === 'Closed' && Object.keys(patch).length === 1) { setClosingId(id); return; }
     const { error: e } = await supabase.from('opportunities').update(patch).eq('id', id);
     if (e) toast('Could not save: ' + e.message);
     else { if (msg) toast(msg); reload(); }
@@ -69,6 +73,7 @@ export default function Pipeline({ openNew, onNewHandled }: { openNew?: boolean;
     rows.map(o => [o.company, o.trigger, o.fit, o.priority, o.stage, memberName(o.owner_id), o.next_action, o.notes, o.contacts?.[0]?.count ?? 0, o.signal?.url, o.updated_at.slice(0, 10)]));
 
   const open = rows.find(o => o.id === openId) ?? (data ?? []).find(o => o.id === openId);
+  const closing = (data ?? []).find(o => o.id === closingId);
   const contactCount = (o: OppWithCount) => o.contacts?.[0]?.count ?? 0;
 
   return (
@@ -133,6 +138,7 @@ export default function Pipeline({ openNew, onNewHandled }: { openNew?: boolean;
                         <div className="flex items-start justify-between gap-2">
                           <div className="text-[13px] font-bold leading-snug">{o.company}</div>
                           <span className="flex shrink-0 gap-1">
+                            {o.closed_outcome && <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${o.closed_outcome === 'won' ? 'bg-teal-50 text-teal-700' : 'bg-red-50 text-red-700'}`}>{o.closed_outcome === 'won' ? 'Won' : 'Lost'}</span>}
                             {o.auto_created && <span className="flex items-center gap-0.5 rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-600" title="Added automatically from a high-fit signal"><Sparkles className="h-2.5 w-2.5" />Auto</span>}
                             <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${PRIORITY_STYLE[o.priority]}`}>{o.priority}</span>
                           </span>
@@ -197,8 +203,10 @@ export default function Pipeline({ openNew, onNewHandled }: { openNew?: boolean;
       {open && (
         <OpportunityPanel opp={open} team={team.data ?? []} memberName={memberName}
           onClose={() => setOpenId(null)} onChange={reload}
-          onUpdate={(patch, msg) => update(open.id, patch, msg)} />
+          onUpdate={(patch, msg) => update(open.id, patch, msg)}
+          onCloseRequested={() => setClosingId(open.id)} />
       )}
+      {closing && <CloseDialog opp={closing} onClose={() => setClosingId(null)} onDone={reload} />}
     </>
   );
 }
@@ -245,12 +253,13 @@ function OwnerSelect({ team, value, onChange }: { team: TeamMember[]; value: str
 }
 
 /** Everything about one opportunity: editable details, contacts and change history. */
-function OpportunityPanel({ opp, team, memberName, onClose, onChange, onUpdate }: {
+function OpportunityPanel({ opp, team, memberName, onClose, onChange, onUpdate, onCloseRequested }: {
   opp: OppWithCount; team: TeamMember[]; memberName: (id: string | null) => string;
   onClose: () => void; onChange: () => void; onUpdate: (patch: Partial<Opportunity>, msg?: string) => void;
+  onCloseRequested: () => void;
 }) {
   const toast = useToast();
-  const [tab, setTab] = useState<'details' | 'contacts' | 'history'>('details');
+  const [tab, setTab] = useState<'details' | 'brief' | 'contacts' | 'calls' | 'proposal' | 'history'>('details');
   const [form, setForm] = useState({ trigger: opp.trigger, fit: opp.fit, next_action: opp.next_action, notes: opp.notes });
   const [addingContact, setAddingContact] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
@@ -272,7 +281,10 @@ function OpportunityPanel({ opp, team, memberName, onClose, onChange, onUpdate }
 
   const tabs = [
     { id: 'details' as const, label: 'Details' },
+    { id: 'brief' as const, label: 'Brief' },
     { id: 'contacts' as const, label: `Contacts (${contacts.data?.length ?? opp.contacts?.[0]?.count ?? 0})` },
+    { id: 'calls' as const, label: 'Call notes' },
+    { id: 'proposal' as const, label: 'Proposal' },
     { id: 'history' as const, label: 'History' },
   ];
 
@@ -293,10 +305,17 @@ function OpportunityPanel({ opp, team, memberName, onClose, onChange, onUpdate }
         <div><label className="label">Owner</label><OwnerSelect team={team} value={opp.owner_id} onChange={v => onUpdate({ owner_id: v }, 'Owner updated')} /></div>
       </div>
 
-      <div className="mb-4 flex gap-1 border-b border-line" role="tablist">
+      {opp.closed_outcome && (
+        <div className={`mb-4 rounded-lg p-3 text-xs ${opp.closed_outcome === 'won' ? 'bg-teal-50 text-teal-800' : 'bg-red-50 text-red-800'}`}>
+          <b>{opp.closed_outcome === 'won' ? 'Won' : 'Lost'}</b>{opp.close_category ? ` · ${opp.close_category}` : ''}{opp.closed_at ? ` · ${formatDate(opp.closed_at)}` : ''}
+          {opp.close_reason && <div className="mt-1">{opp.close_reason}</div>}
+          {opp.close_lesson && <div className="mt-1"><b>Lesson:</b> {opp.close_lesson}</div>}
+        </div>
+      )}
+      <div className="mb-4 flex gap-1 overflow-x-auto border-b border-line" role="tablist">
         {tabs.map(t => (
           <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
-            className={`-mb-px border-b-2 px-3 py-2 text-xs font-semibold ${tab === t.id ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+            className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-2 text-xs font-semibold ${tab === t.id ? 'border-brand-500 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
             {t.label}
           </button>
         ))}
@@ -368,6 +387,10 @@ function OpportunityPanel({ opp, team, memberName, onClose, onChange, onUpdate }
         </div>
       )}
 
+      {tab === 'brief' && <BriefTab opp={opp} onChange={onChange} />}
+      {tab === 'calls' && <CallNotesTab opp={opp} onUpdate={onUpdate} onChange={() => { contacts.reload(); onChange(); }} onCloseRequested={onCloseRequested} />}
+      {tab === 'proposal' && <ProposalTab opp={opp} onChange={onChange} />}
+
       {findingContacts && (
         <FindContactsDialog company={opp.company} domain={opp.company_domain} opportunityId={opp.id}
           onClose={() => setFindingContacts(false)} onSaved={() => { contacts.reload(); onChange(); }} />
@@ -391,7 +414,7 @@ function OpportunityPanel({ opp, team, memberName, onClose, onChange, onUpdate }
 }
 
 const FIELD_LABELS: Record<string, string> = {
-  stage: 'Stage', priority: 'Priority', owner_id: 'Owner', next_action: 'Next action', notes: 'Notes', trigger: 'Trigger', fit: 'Fit', company: 'Company',
+  stage: 'Stage', priority: 'Priority', closed_outcome: 'Outcome', owner_id: 'Owner', next_action: 'Next action', notes: 'Notes', trigger: 'Trigger', fit: 'Fit', company: 'Company',
 };
 function describeChange(change: OpportunityActivity['change'], memberName: (id: string | null) => string): string {
   if ('created' in change) return 'Created the opportunity';

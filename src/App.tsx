@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { Activity, BarChart3, BookOpen, ChevronDown, Megaphone, Contact as ContactIcon, Database, LayoutDashboard, LogOut, Menu, Plus, Sparkles, Target, TrendingUp, X, type LucideIcon } from 'lucide-react';
+import { Activity, BarChart3, BookOpen, ChevronDown, Megaphone, Contact as ContactIcon, Database, FileBarChart, LayoutDashboard, Swords, LogOut, Menu, Plus, Sparkles, Target, TrendingUp, X, type LucideIcon } from 'lucide-react';
 import { isConfigured, supabase } from './lib/supabase';
 import { ToastProvider, Spinner } from './components/ui';
 import Login, { SetPassword } from './views/Login';
@@ -13,8 +13,10 @@ import Sources from './views/Sources';
 import Contacts from './views/Contacts';
 import ServiceLines from './views/ServiceLines';
 import Playbook from './views/Playbook';
+import WeeklyReport from './views/WeeklyReport';
+import Competitors from './views/Competitors';
 
-export type View = 'home' | 'feed' | 'invest' | 'pipeline' | 'contacts' | 'services' | 'playbook' | 'assistant' | 'sources';
+export type View = 'home' | 'feed' | 'invest' | 'pipeline' | 'contacts' | 'services' | 'playbook' | 'assistant' | 'sources' | 'report' | 'competitors';
 
 const NAV: { id: View; label: string; icon: LucideIcon }[] = [
   { id: 'home', label: 'Overview', icon: LayoutDashboard },
@@ -22,6 +24,8 @@ const NAV: { id: View; label: string; icon: LucideIcon }[] = [
   { id: 'invest', label: 'Investment Radar', icon: TrendingUp },
   { id: 'pipeline', label: 'Opportunity Pipeline', icon: Target },
   { id: 'contacts', label: 'Contacts', icon: ContactIcon },
+  { id: 'report', label: 'Weekly Report', icon: FileBarChart },
+  { id: 'competitors', label: 'Competitor Watch', icon: Swords },
   { id: 'services', label: 'Service Lines', icon: BookOpen },
   { id: 'playbook', label: 'Outreach Playbook', icon: Megaphone },
   { id: 'assistant', label: 'AI Research Assistant', icon: Sparkles },
@@ -161,6 +165,8 @@ export default function App() {
             {view === 'playbook' && <Playbook />}
             {view === 'assistant' && <Assistant />}
             {view === 'sources' && <Sources />}
+            {view === 'report' && <WeeklyReport />}
+            {view === 'competitors' && <Competitors />}
           </div>
         </main>
       </div>

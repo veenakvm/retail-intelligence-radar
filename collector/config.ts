@@ -141,5 +141,27 @@ export const RETAIL_KEYWORDS = [
   'marketplace', 'shopping',
 ];
 
+/**
+ * Competitor watch: news about these companies in retail / e-commerce, last 7 days.
+ * A starter list of specialist QA and test-tool companies; edit to the competitors you actually meet.
+ */
+export const COMPETITORS = [
+  'Cigniti Technologies',
+  'Qualitest',
+  'TestingXperts',
+  'Indium Software',
+  'QA Mentor',
+  'Tricentis',
+  'BrowserStack',
+  'LambdaTest',
+];
+
+export function competitorFeeds(): { url: string; query: string }[] {
+  return COMPETITORS.map(name => {
+    const q = `"${name}" (retail OR retailer OR ecommerce OR "e-commerce" OR testing) when:7d`;
+    return { url: `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-IN&gl=IN&ceid=IN:en`, query: name };
+  });
+}
+
 /** Most articles classified per run (cost control). Override with MAX_CLASSIFY. */
 export const MAX_CLASSIFY = Number(process.env.MAX_CLASSIFY || 300);

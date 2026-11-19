@@ -46,6 +46,15 @@ export interface Opportunity {
   primary_contact_id: string | null;
   auto_created?: boolean;
   company_domain?: string;
+  account_brief?: Record<string, unknown> | null;
+  brief_updated_at?: string | null;
+  proposal_draft?: string | null;
+  proposal_updated_at?: string | null;
+  closed_outcome?: '' | 'won' | 'lost';
+  close_reason?: string;
+  close_category?: string;
+  close_lesson?: string;
+  closed_at?: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

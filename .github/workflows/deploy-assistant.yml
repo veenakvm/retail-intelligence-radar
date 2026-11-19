@@ -32,3 +32,5 @@ jobs:
           # The Apollo function shares the ICP settings with the web app; Apollo calls it back for phone numbers.
           cp src/lib/icp.ts supabase/functions/apollo/icp.ts
           supabase functions deploy apollo --yes --project-ref "$PROJECT_REF" --no-verify-jwt
+          cp src/lib/serviceLines.ts supabase/functions/workflows/serviceLines.ts
+          supabase functions deploy workflows --yes --project-ref "$PROJECT_REF" --no-verify-jwt

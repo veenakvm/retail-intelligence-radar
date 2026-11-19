@@ -1,0 +1,28 @@
+name: Weekly pipeline report
+
+on:
+  schedule:
+    - cron: '13 3 * * 1'   # Mondays, 08:43 IST
+  workflow_dispatch:
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsx collector/weekly-report.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          REPORT_RECIPIENTS: ${{ vars.REPORT_RECIPIENTS }}
+          REPORT_FROM: ${{ vars.REPORT_FROM }}
+          SITE_URL: https://veenakvm.github.io/${{ github.event.repository.name }}/

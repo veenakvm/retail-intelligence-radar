@@ -32,7 +32,7 @@ export function SidePanel({ title, subtitle, onClose, children }: { title: strin
     <div className="fixed inset-0 z-40" onMouseDown={onClose}>
       <div className="absolute inset-0 bg-navy/30" />
       <aside
-        className="absolute inset-y-0 right-0 flex w-full max-w-xl flex-col bg-white shadow-2xl"
+        className="absolute inset-y-0 right-0 flex w-full max-w-2xl flex-col bg-white shadow-2xl"
         onMouseDown={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={title}
       >
         <div className="flex items-start gap-3 border-b border-line px-5 py-4">
