@@ -1,0 +1,32 @@
+name: Invite team members
+
+on:
+  workflow_dispatch:
+    inputs:
+      invites:
+        description: 'People to invite, comma-separated: Full Name <name@company.com>, ...'
+        required: true
+      role:
+        description: 'Role for everyone in this invite'
+        type: choice
+        options: [member, admin]
+        default: member
+
+jobs:
+  invite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsx collector/invite-users.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          INVITES: ${{ inputs.invites }}
+          ROLE: ${{ inputs.role }}
+          SITE_URL: https://veenakvm.github.io/${{ github.event.repository.name }}/
