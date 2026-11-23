@@ -65,7 +65,7 @@ export default function Login() {
 }
 
 /** Shown after an invite or password-reset link: the user chooses their password. */
-export function SetPassword({ onDone }: { onDone: () => void }) {
+export function SetPassword({ onDone, onCancel }: { onDone: () => void; onCancel?: () => void }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const save = async (e: React.FormEvent) => {
@@ -82,6 +82,7 @@ export function SetPassword({ onDone }: { onDone: () => void }) {
         <input type="password" className="field" value={password} onChange={e => setPassword(e.target.value)} placeholder="New password (8+ characters)" autoComplete="new-password" />
         {error && <ErrorNote message={error} />}
         <button className="btn-primary w-full py-2.5 text-sm">Save password</button>
+        {onCancel && <button type="button" className="btn w-full py-2.5 text-sm" onClick={onCancel}>Cancel</button>}
       </form>
     </Shell>
   );

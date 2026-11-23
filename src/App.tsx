@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { Activity, BarChart3, BookOpen, ChevronDown, Megaphone, Contact as ContactIcon, Database, FileBarChart, LayoutDashboard, Swords, LogOut, Menu, Plus, Sparkles, Target, TrendingUp, Workflow, X, type LucideIcon } from 'lucide-react';
+import { Activity, BarChart3, BookOpen, ChevronDown, Megaphone, Contact as ContactIcon, Database, FileBarChart, KeyRound, LayoutDashboard, Swords, LogOut, Menu, Plus, Sparkles, Target, TrendingUp, Workflow, X, type LucideIcon } from 'lucide-react';
 import { isConfigured, supabase } from './lib/supabase';
 import { ToastProvider, Spinner } from './components/ui';
 import Login, { SetPassword } from './views/Login';
@@ -70,7 +70,8 @@ export default function App() {
   if (loading) return <Spinner />;
   if (!session) return <Login />;
   if (needsPassword) {
-    return <SetPassword onDone={() => { setNeedsPassword(false); history.replaceState(null, '', window.location.pathname); }} />;
+    return <SetPassword onDone={() => { setNeedsPassword(false); history.replaceState(null, '', window.location.pathname); }}
+      onCancel={arrivedToSetPassword ? undefined : () => setNeedsPassword(false)} />;
   }
   if (isMember === null) return <Spinner />;
   if (!isMember) {
@@ -114,6 +115,9 @@ export default function App() {
       </nav>
       <div className="border-t border-white/10 pt-3 text-xs">
         <div className="truncate text-navy-200">{session.user.email}</div>
+        <button className="mt-2 flex items-center gap-1.5 text-navy-300 hover:text-white" onClick={() => { setMenuOpen(false); setNeedsPassword(true); }}>
+          <KeyRound className="h-3.5 w-3.5" /> Change password
+        </button>
         <button className="mt-2 flex items-center gap-1.5 text-navy-300 hover:text-white" onClick={() => supabase.auth.signOut()}>
           <LogOut className="h-3.5 w-3.5" /> Sign out
         </button>
