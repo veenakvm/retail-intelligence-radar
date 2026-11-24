@@ -38,7 +38,7 @@ const NAV: { id: View; label: string; icon: LucideIcon; group: NavGroup }[] = [
   { id: 'pipeline', label: 'Opportunity Pipeline', icon: Target, group: 'pipeline' },
   { id: 'contacts', label: 'Contacts', icon: ContactIcon, group: 'pipeline' },
   { id: 'playbook', label: 'Outreach Playbook', icon: Megaphone, group: 'win' },
-  { id: 'services', label: 'Service Lines', icon: BookOpen, group: 'win' },
+  { id: 'services', label: 'Our product that can help your growth', icon: BookOpen, group: 'win' },
   { id: 'report', label: 'Weekly Report', icon: FileBarChart, group: 'report' },
   { id: 'sources', label: 'Data Sources & Health', icon: Database, group: 'admin' },
 ];

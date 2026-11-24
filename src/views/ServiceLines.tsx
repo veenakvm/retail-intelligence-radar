@@ -13,8 +13,8 @@ export default function ServiceLines({ openFeed }: { openFeed: (serviceLine: str
 
   return (
     <>
-      <PageHeader eyebrow="03 · Reach out and win" title="Service Lines"
-        sub="Every relevant signal is matched to one of these service lines. Use this page to understand the match and prepare for a conversation." />
+      <PageHeader eyebrow="03 · Reach out and win" title="Our product that can help your growth"
+        sub="What AlgoShack offers retailers. Every news item in the Radar is matched to one of these, so use this page to know what to pitch and what to ask." />
       <div className="grid gap-3 lg:grid-cols-2">
         {SERVICE_LINES.map(line => (
           <article key={line.id} id={line.id} className="card flex flex-col p-5">
