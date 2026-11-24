@@ -24,7 +24,7 @@ export const GROUPS: { id: NavGroup; num?: string; title: string; dot: string; h
   { id: 'start', title: 'Start here', dot: 'bg-sky-400' },
   { id: 'signal', num: '01', title: 'Catch the signal', dot: 'bg-amber-400' },
   { id: 'pipeline', num: '02', title: 'Build the pipeline', dot: 'bg-rose-400' },
-  { id: 'win', num: '03', title: 'Reach out and win', dot: 'bg-violet-400', hint: 'Brief, meeting prep, call notes and proposal: open any opportunity' },
+  { id: 'win', num: '03', title: 'Reach out and win', dot: 'bg-violet-400' },
   { id: 'report', num: '04', title: 'Report and review', dot: 'bg-teal-400' },
   { id: 'admin', title: 'Admin', dot: 'bg-slate-400' },
 ];
