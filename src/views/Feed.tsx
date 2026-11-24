@@ -54,7 +54,7 @@ export default function Feed({ initialServiceLine, onFilterApplied }: { initialS
 
   return (
     <>
-      <PageHeader eyebrow="Signal monitoring" title="Intelligence Feed"
+      <PageHeader eyebrow="01 · Catch the signal" title="Intelligence Feed"
         sub="Every article the daily collector found, classified by market, sector and signal type. Click a headline to open the source."
         actions={<button className="btn" onClick={exportCsv} disabled={!rows.length}><Download className="h-3.5 w-3.5" /> Export CSV</button>} />
 

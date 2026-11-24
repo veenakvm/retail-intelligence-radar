@@ -26,7 +26,7 @@ export default function Overview({ go }: { go: (v: View) => void }) {
   return (
     <>
       <PageHeader
-        eyebrow="Retail market intelligence"
+        eyebrow="Start here"
         title="Retail Intelligence Radar"
         sub="Investment, expansion, acquisition and technology signals from public sources, India and USA, last 30 days."
       />

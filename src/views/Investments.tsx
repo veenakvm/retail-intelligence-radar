@@ -22,7 +22,7 @@ export default function Investments() {
 
   return (
     <>
-      <PageHeader eyebrow="Capital and deal activity" title="Investment Radar"
+      <PageHeader eyebrow="01 · Catch the signal" title="Investment Radar"
         sub="Funding rounds, stakes and acquisitions: who invested, who received capital, and what growth may require."
         actions={<>
           <select className="field w-auto" value={country} onChange={e => setCountry(e.target.value)} aria-label="Market">

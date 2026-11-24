@@ -38,7 +38,7 @@ export default function WeeklyReport() {
 
   return (
     <>
-      <PageHeader eyebrow="Sales intelligence" title="Weekly Report"
+      <PageHeader eyebrow="04 · Report and review" title="Weekly Report"
         sub="Every Monday morning: pipeline movement, deals needing attention, the week’s best signals and LinkedIn post ideas."
         actions={list.length > 1 ? (
           <select className="field py-1.5 text-xs" value={r?.id} onChange={e => setPick(e.target.value)} aria-label="Week">

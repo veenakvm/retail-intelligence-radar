@@ -49,7 +49,7 @@ export default function Contacts({ openNew, onNewHandled }: { openNew?: boolean;
 
   return (
     <>
-      <PageHeader eyebrow="Relationships" title="Contacts"
+      <PageHeader eyebrow="02 · Build the pipeline" title="Contacts"
         sub="People at target accounts. Add anyone directly; contacts at a company also appear on its opportunity."
         actions={<>
           <button className="btn-primary" onClick={() => setApollo(true)}><Sparkles className="h-3.5 w-3.5" /> Find in Apollo</button>

@@ -33,7 +33,7 @@ export default function Sources() {
 
   return (
     <>
-      <PageHeader eyebrow="Data operations" title="Data Sources & Health"
+      <PageHeader eyebrow="Admin" title="Data Sources & Health"
         sub="Where the data comes from, when it was last collected, and what is connected." />
       {runs.error && <ErrorNote message={runs.error} />}
       <div className="grid gap-3 lg:grid-cols-2">

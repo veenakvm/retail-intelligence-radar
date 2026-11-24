@@ -78,7 +78,7 @@ export default function Pipeline({ openNew, onNewHandled }: { openNew?: boolean;
 
   return (
     <>
-      <PageHeader eyebrow="Sales intelligence" title="Opportunity Pipeline"
+      <PageHeader eyebrow="02 · Build the pipeline" title="Opportunity Pipeline"
         sub="Shared with the whole team. Drag cards between stages; click a card to see its details, contacts and history."
         actions={<>
           <button className="btn-primary" onClick={() => setAdding(true)}><Plus className="h-3.5 w-3.5" /> Add opportunity</button>

@@ -22,7 +22,7 @@ export default function Competitors() {
 
   return (
     <>
-      <PageHeader eyebrow="Market intelligence" title="Competitor Watch"
+      <PageHeader eyebrow="01 · Catch the signal" title="Competitor Watch"
         sub="News about competing QA and testing firms, collected with each data run. The list of competitors is in collector/config.ts." />
       {notSetUp ? <ErrorNote message="Competitor watch is not set up yet: run supabase/migrations/006_gtm_workflows.sql in Supabase." />
         : news.error ? <ErrorNote message={news.error} /> : null}

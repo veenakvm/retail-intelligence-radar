@@ -13,7 +13,7 @@ export default function ServiceLines({ openFeed }: { openFeed: (serviceLine: str
 
   return (
     <>
-      <PageHeader eyebrow="What we offer" title="Service Lines"
+      <PageHeader eyebrow="03 · Reach out and win" title="Service Lines"
         sub="Every relevant signal is matched to one of these service lines. Use this page to understand the match and prepare for a conversation." />
       <div className="grid gap-3 lg:grid-cols-2">
         {SERVICE_LINES.map(line => (

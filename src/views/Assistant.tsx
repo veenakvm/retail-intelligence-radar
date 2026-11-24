@@ -43,7 +43,7 @@ export default function Assistant() {
 
   return (
     <>
-      <PageHeader eyebrow="Conversational research" title="Ask the Retail Radar"
+      <PageHeader eyebrow="01 · Catch the signal" title="Ask the Retail Radar"
         sub="Answers come only from articles the radar has collected, with numbered links to each source." />
       <div className="grid gap-3 lg:grid-cols-[1.5fr_1fr]">
         <div className="card flex h-[560px] flex-col p-4">

@@ -10,14 +10,18 @@ interface Workflow {
   what: string; how: string; go?: { view: View; label: string }; needs?: string;
 }
 
-const STAGES: { title: string; goal: string; items: Workflow[] }[] = [
+const STAGES: { num: string; title: string; goal: string; items: Workflow[] }[] = [
   {
-    title: 'Find', goal: 'Spot retailers with a reason to buy, before competitors do.',
+    num: '01', title: 'Catch the signal', goal: 'Spot retailers with a reason to buy, before competitors do.',
     items: [
       { n: '01', name: 'New lead research', status: 'live', trigger: 'Signal',
         what: 'Collects retail news twice a day, scores each article for AlgoShack fit, and adds articles scoring 80+ to the pipeline automatically. Each opportunity has a one-click account brief.',
         how: 'Check the Intelligence Feed each morning. Open “Auto” cards in the pipeline and click Brief → Create brief.',
         go: { view: 'feed', label: 'Intelligence Feed' } },
+      { n: '11', name: 'Competitor watch', status: 'live', trigger: 'Schedule',
+        what: 'News on competing QA and testing firms, collected with every data run, filterable by competitor.',
+        how: 'Check Competitor Watch weekly; use launches and price changes as talking points.',
+        go: { view: 'competitors', label: 'Competitor Watch' } },
       { n: '02', name: 'Visitor follow-up', status: 'planned', trigger: 'Webhook',
         what: 'When a target retailer visits the AlgoShack website, alert the account owner with the pages they read and a suggested message.',
         how: '', needs: 'A website-visitor tool on algoshack.com (for example Leadfeeder, Albacross or Clearbit Reveal) that can send alerts to the Radar.' },
@@ -30,7 +34,7 @@ const STAGES: { title: string; goal: string; items: Workflow[] }[] = [
     ],
   },
   {
-    title: 'Engage and win', goal: 'Turn a signal into a meeting, a proposal and a decision.',
+    num: '03', title: 'Reach out and win', goal: 'Turn a signal into a meeting, a proposal and a decision.',
     items: [
       { n: '05', name: 'Meeting prep', status: 'live', trigger: 'Prompt',
         what: 'Agenda, discovery questions, likely objections with replies, and what a good outcome looks like, from the account’s news, contacts and call history.',
@@ -51,7 +55,7 @@ const STAGES: { title: string; goal: string; items: Workflow[] }[] = [
     ],
   },
   {
-    title: 'Learn and market', goal: 'Keep the team, leadership and the market informed.',
+    num: '04', title: 'Report and review', goal: 'Keep the team, leadership and the market informed.',
     items: [
       { n: '09', name: 'Weekly pipeline report', status: 'live', trigger: 'Schedule',
         what: 'Every Monday 08:43 IST: pipeline counts, stage moves, stalled deals, wins and losses, the week’s best signals and recommended actions. Can also be emailed.',
@@ -62,14 +66,10 @@ const STAGES: { title: string; goal: string; items: Workflow[] }[] = [
         how: 'Weekly Report → LinkedIn post ideas → Copy → add your own view before posting.',
         go: { view: 'report', label: 'Weekly Report' },
         needs: 'Also draw anonymised themes from the week’s call notes.' },
-      { n: '11', name: 'Competitor watch', status: 'live', trigger: 'Schedule',
-        what: 'News on competing QA and testing firms, collected with every data run, filterable by competitor.',
-        how: 'Check Competitor Watch weekly; use launches and price changes as talking points.',
-        go: { view: 'competitors', label: 'Competitor Watch' } },
     ],
   },
   {
-    title: 'Retain and grow', goal: 'Protect and expand existing clients.',
+    num: '05', title: 'Retain and grow', goal: 'Protect and expand existing clients.',
     items: [
       { n: '12', name: 'Renewal risk', status: 'planned', trigger: 'Schedule',
         what: 'Flag clients with renewals coming up and warning signs (leadership change, layoffs, new vendor news, quiet accounts).',
@@ -106,7 +106,7 @@ export default function GtmWorkflows({ go }: { go: (v: View) => void }) {
 
   return (
     <>
-      <PageHeader eyebrow="Go-to-market" title="GTM Workflows"
+      <PageHeader eyebrow="Start here" title="GTM Workflows"
         sub="Twelve sales workflows, from finding a lead to keeping a client, and where each one runs in the Radar." />
 
       <div className="mb-4 grid grid-cols-3 gap-3">
@@ -134,10 +134,10 @@ export default function GtmWorkflows({ go }: { go: (v: View) => void }) {
       </div>
 
       <div className="space-y-5">
-        {STAGES.map((stage, i) => (
+        {STAGES.map(stage => (
           <section key={stage.title}>
             <div className="mb-2 flex flex-wrap items-baseline gap-2">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-navy text-[10px] font-bold text-white">{i + 1}</span>
+              <span className="flex h-5 w-6 items-center justify-center rounded-full bg-navy text-[10px] font-bold text-white">{stage.num}</span>
               <h2 className="text-base font-bold text-[#172338]">{stage.title}</h2>
               <span className="text-xs text-gray-500">{stage.goal}</span>
             </div>

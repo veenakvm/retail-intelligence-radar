@@ -19,19 +19,30 @@ import GtmWorkflows from './views/GtmWorkflows';
 
 export type View = 'home' | 'feed' | 'invest' | 'pipeline' | 'contacts' | 'services' | 'playbook' | 'assistant' | 'sources' | 'report' | 'competitors' | 'gtm';
 
-const NAV: { id: View; label: string; icon: LucideIcon }[] = [
-  { id: 'home', label: 'Overview', icon: LayoutDashboard },
-  { id: 'gtm', label: 'GTM Workflows', icon: Workflow },
-  { id: 'feed', label: 'Intelligence Feed', icon: Activity },
-  { id: 'invest', label: 'Investment Radar', icon: TrendingUp },
-  { id: 'pipeline', label: 'Opportunity Pipeline', icon: Target },
-  { id: 'contacts', label: 'Contacts', icon: ContactIcon },
-  { id: 'report', label: 'Weekly Report', icon: FileBarChart },
-  { id: 'competitors', label: 'Competitor Watch', icon: Swords },
-  { id: 'services', label: 'Service Lines', icon: BookOpen },
-  { id: 'playbook', label: 'Outreach Playbook', icon: Megaphone },
-  { id: 'assistant', label: 'AI Research Assistant', icon: Sparkles },
-  { id: 'sources', label: 'Data Sources & Health', icon: Database },
+// The sidebar follows the sales motion: catch the signal → build the pipeline → reach out and win → report.
+export type NavGroup = 'start' | 'signal' | 'pipeline' | 'win' | 'report' | 'admin';
+export const GROUPS: { id: NavGroup; num?: string; title: string; dot: string; hint?: string }[] = [
+  { id: 'start', title: 'Start here', dot: 'bg-sky-400' },
+  { id: 'signal', num: '01', title: 'Catch the signal', dot: 'bg-amber-400' },
+  { id: 'pipeline', num: '02', title: 'Build the pipeline', dot: 'bg-rose-400' },
+  { id: 'win', num: '03', title: 'Reach out and win', dot: 'bg-violet-400', hint: 'Brief, meeting prep, call notes and proposal: open any opportunity' },
+  { id: 'report', num: '04', title: 'Report and review', dot: 'bg-teal-400' },
+  { id: 'admin', title: 'Admin', dot: 'bg-slate-400' },
+];
+
+const NAV: { id: View; label: string; icon: LucideIcon; group: NavGroup }[] = [
+  { id: 'home', label: 'Overview', icon: LayoutDashboard, group: 'start' },
+  { id: 'gtm', label: 'GTM Workflows', icon: Workflow, group: 'start' },
+  { id: 'feed', label: 'Intelligence Feed', icon: Activity, group: 'signal' },
+  { id: 'invest', label: 'Investment Radar', icon: TrendingUp, group: 'signal' },
+  { id: 'competitors', label: 'Competitor Watch', icon: Swords, group: 'signal' },
+  { id: 'assistant', label: 'AI Research Assistant', icon: Sparkles, group: 'signal' },
+  { id: 'pipeline', label: 'Opportunity Pipeline', icon: Target, group: 'pipeline' },
+  { id: 'contacts', label: 'Contacts', icon: ContactIcon, group: 'pipeline' },
+  { id: 'playbook', label: 'Outreach Playbook', icon: Megaphone, group: 'win' },
+  { id: 'services', label: 'Service Lines', icon: BookOpen, group: 'win' },
+  { id: 'report', label: 'Weekly Report', icon: FileBarChart, group: 'report' },
+  { id: 'sources', label: 'Data Sources & Health', icon: Database, group: 'admin' },
 ];
 
 // Invite and password-reset links land here with type=invite / type=recovery in the URL hash.
@@ -90,10 +101,11 @@ export default function App() {
   const clearFeedFilter = () => setFeedServiceLine(undefined);
   const go = (v: View) => { setView(v); setMenuOpen(false); window.scrollTo({ top: 0 }); };
   const active = NAV.find(n => n.id === view)!;
+  const activeGroup = GROUPS.find(g => g.id === active.group)!;
 
   const sidebar = (
     <div className="flex h-full flex-col bg-navy p-4 text-white">
-      <div className="mb-6 flex items-center gap-2.5 px-1">
+      <div className="mb-5 flex items-center gap-2.5 px-1">
         <img src={`${import.meta.env.BASE_URL}radar.svg`} alt="" className="h-8 w-8" />
         <div>
           <div className="text-[15px] font-bold leading-tight">Retail Intelligence</div>
@@ -101,17 +113,26 @@ export default function App() {
         </div>
         <button className="ml-auto rounded p-1 text-navy-200 hover:bg-navy-600 lg:hidden" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X className="h-5 w-5" /></button>
       </div>
-      <nav className="flex-1 space-y-1" aria-label="Main">
-        {NAV.map(n => {
-          const Icon = n.icon;
-          const on = n.id === view;
-          return (
-            <button key={n.id} onClick={() => go(n.id)} aria-current={on ? 'page' : undefined}
-              className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm ${on ? 'bg-navy-600 text-white' : 'text-navy-200 hover:bg-navy-600 hover:text-white'}`}>
-              <Icon className="h-4 w-4 shrink-0" /> {n.label}
-            </button>
-          );
-        })}
+      <nav className="-mx-1 flex-1 overflow-y-auto px-1" aria-label="Main">
+        {GROUPS.map(g => (
+          <div key={g.id} className="mb-3">
+            <div className="flex items-center gap-1.5 px-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-navy-300">
+              <span className={`h-1.5 w-1.5 rounded-full ${g.dot}`} />
+              {g.num && <span className="text-navy-200">{g.num}</span>} {g.title}
+            </div>
+            {NAV.filter(n => n.group === g.id).map(n => {
+              const Icon = n.icon;
+              const on = n.id === view;
+              return (
+                <button key={n.id} onClick={() => go(n.id)} aria-current={on ? 'page' : undefined}
+                  className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm ${on ? 'bg-navy-600 text-white' : 'text-navy-200 hover:bg-navy-600 hover:text-white'}`}>
+                  <Icon className="h-4 w-4 shrink-0" /> {n.label}
+                </button>
+              );
+            })}
+            {g.hint && <p className="px-3 pt-1 text-[10px] leading-snug text-navy-300">{g.hint}</p>}
+          </div>
+        ))}
       </nav>
       <div className="border-t border-white/10 pt-3 text-xs">
         <div className="truncate text-navy-200">{session.user.email}</div>
@@ -139,7 +160,7 @@ export default function App() {
         <main className="min-w-0">
           <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-line bg-white px-4 py-3.5 text-sm sm:px-6">
             <button className="-ml-1 rounded p-1.5 text-gray-600 hover:bg-gray-100 lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu"><Menu className="h-5 w-5" /></button>
-            <span className="text-gray-500">Workspace /</span> <b className="truncate">{active.label}</b>
+            <span className="hidden text-gray-500 sm:inline">{activeGroup.num ? `${activeGroup.num} ${activeGroup.title}` : activeGroup.title} /</span> <b className="truncate">{active.label}</b>
             <div className="relative ml-auto">
               <button className="btn-primary" onClick={() => setNewMenu(m => !m)} aria-expanded={newMenu} aria-haspopup="menu">
                 <Plus className="h-3.5 w-3.5" /> New <ChevronDown className="h-3 w-3" />
