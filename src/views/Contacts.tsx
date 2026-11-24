@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Download, Search, Sparkles, UserPlus } from 'lucide-react';
+import { Download, Search, Sparkles, Upload, UserPlus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useQuery } from '../lib/data';
 import { downloadCsv } from '../lib/format';
@@ -8,6 +8,7 @@ import { Empty, ErrorNote, PageHeader, Spinner, useToast } from '../components/u
 import { Dialog } from '../components/overlay';
 import { ContactCard, ContactForm, emptyContact } from '../components/contacts';
 import { FindContactsDialog } from '../components/apollo';
+import { BulkImportDialog } from '../components/bulkImport';
 
 export default function Contacts({ openNew, onNewHandled }: { openNew?: boolean; onNewHandled?: () => void }) {
   const toast = useToast();
@@ -16,6 +17,7 @@ export default function Contacts({ openNew, onNewHandled }: { openNew?: boolean;
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
   const [apollo, setApollo] = useState(false);
+  const [bulk, setBulk] = useState(false);
 
   useEffect(() => { if (openNew) { setAdding(true); onNewHandled?.(); } }, [openNew, onNewHandled]);
 
@@ -54,6 +56,7 @@ export default function Contacts({ openNew, onNewHandled }: { openNew?: boolean;
         actions={<>
           <button className="btn-primary" onClick={() => setApollo(true)}><Sparkles className="h-3.5 w-3.5" /> Find in Apollo</button>
           <button className="btn" onClick={() => setAdding(true)}><UserPlus className="h-3.5 w-3.5" /> Add contact</button>
+          <button className="btn" onClick={() => setBulk(true)}><Upload className="h-3.5 w-3.5" /> Bulk upload</button>
           <button className="btn" onClick={exportCsv} disabled={!rows.length}><Download className="h-3.5 w-3.5" /> Export CSV</button>
         </>} />
 
@@ -119,6 +122,10 @@ export default function Contacts({ openNew, onNewHandled }: { openNew?: boolean;
             }}
           />
         </Dialog>
+      )}
+      {bulk && (
+        <BulkImportDialog existing={data ?? []} opportunities={opps.data ?? []}
+          onClose={() => setBulk(false)} onImported={() => { setBulk(false); reload(); }} />
       )}
     </>
   );

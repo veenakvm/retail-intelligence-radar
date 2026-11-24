@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { Activity, BarChart3, BookOpen, ChevronDown, Megaphone, Contact as ContactIcon, Database, FileBarChart, KeyRound, LayoutDashboard, Swords, LogOut, Menu, Plus, Sparkles, Target, TrendingUp, Workflow, X, type LucideIcon } from 'lucide-react';
+import { Activity, BarChart3, BookOpen, ChevronDown, Megaphone, Contact as ContactIcon, Database, FileBarChart, KeyRound, LayoutDashboard, Swords, LogOut, Menu, Plus, Sparkles, Target, TrendingUp, X, type LucideIcon } from 'lucide-react';
 import { isConfigured, supabase } from './lib/supabase';
 import { ToastProvider, Spinner } from './components/ui';
 import Login, { SetPassword } from './views/Login';
@@ -15,9 +15,8 @@ import ServiceLines from './views/ServiceLines';
 import Playbook from './views/Playbook';
 import WeeklyReport from './views/WeeklyReport';
 import Competitors from './views/Competitors';
-import GtmWorkflows from './views/GtmWorkflows';
 
-export type View = 'home' | 'feed' | 'invest' | 'pipeline' | 'contacts' | 'services' | 'playbook' | 'assistant' | 'sources' | 'report' | 'competitors' | 'gtm';
+export type View = 'home' | 'feed' | 'invest' | 'pipeline' | 'contacts' | 'services' | 'playbook' | 'assistant' | 'sources' | 'report' | 'competitors';
 
 // The sidebar follows the sales motion: catch the signal → build the pipeline → reach out and win → report.
 export type NavGroup = 'start' | 'signal' | 'pipeline' | 'win' | 'report' | 'admin';
@@ -32,7 +31,6 @@ export const GROUPS: { id: NavGroup; num?: string; title: string; dot: string; h
 
 const NAV: { id: View; label: string; icon: LucideIcon; group: NavGroup }[] = [
   { id: 'home', label: 'Overview', icon: LayoutDashboard, group: 'start' },
-  { id: 'gtm', label: 'GTM Workflows', icon: Workflow, group: 'start' },
   { id: 'feed', label: 'Intelligence Feed', icon: Activity, group: 'signal' },
   { id: 'invest', label: 'Investment Radar', icon: TrendingUp, group: 'signal' },
   { id: 'competitors', label: 'Competitor Watch', icon: Swords, group: 'signal' },
@@ -56,6 +54,16 @@ export default function App() {
   const [view, setView] = useState<View>('home');
   const [menuOpen, setMenuOpen] = useState(false);
   const [newMenu, setNewMenu] = useState(false);
+  const [open, setOpen] = useState<Set<NavGroup>>(() => {
+    try { const saved = JSON.parse(localStorage.getItem('navOpen') || 'null'); if (Array.isArray(saved)) return new Set(saved as NavGroup[]); } catch { /* ignore */ }
+    return new Set<NavGroup>();
+  });
+  const toggleGroup = (g: NavGroup) => setOpen(prev => {
+    const next = new Set(prev);
+    if (next.has(g)) next.delete(g); else next.add(g);
+    try { localStorage.setItem('navOpen', JSON.stringify([...next])); } catch { /* private mode */ }
+    return next;
+  });
   const [pendingNew, setPendingNew] = useState<'pipeline' | 'contacts' | null>(null);
   const [feedServiceLine, setFeedServiceLine] = useState<string | undefined>();
 
@@ -99,7 +107,11 @@ export default function App() {
 
   const clearPending = () => setPendingNew(null);
   const clearFeedFilter = () => setFeedServiceLine(undefined);
-  const go = (v: View) => { setView(v); setMenuOpen(false); window.scrollTo({ top: 0 }); };
+  const go = (v: View) => {
+    setView(v); setMenuOpen(false); window.scrollTo({ top: 0 });
+    const g = NAV.find(n => n.id === v)?.group;
+    if (g) setOpen(prev => (prev.has(g) ? prev : new Set(prev).add(g)));
+  };
   const active = NAV.find(n => n.id === view)!;
   const activeGroup = GROUPS.find(g => g.id === active.group)!;
 
@@ -114,25 +126,45 @@ export default function App() {
         <button className="ml-auto rounded p-1 text-navy-200 hover:bg-navy-600 lg:hidden" onClick={() => setMenuOpen(false)} aria-label="Close menu"><X className="h-5 w-5" /></button>
       </div>
       <nav className="-mx-1 flex-1 overflow-y-auto px-1" aria-label="Main">
-        {GROUPS.map(g => (
-          <div key={g.id} className="mb-3">
-            <div className="flex items-center gap-1.5 px-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-navy-300">
-              <span className={`h-1.5 w-1.5 rounded-full ${g.dot}`} />
-              {g.num && <span className="text-navy-200">{g.num}</span>} {g.title}
+        {GROUPS.map(g => {
+          const items = NAV.filter(n => n.group === g.id);
+          const item = (n: typeof NAV[number]) => {
+            const Icon = n.icon;
+            const on = n.id === view;
+            return (
+              <button key={n.id} onClick={() => go(n.id)} aria-current={on ? 'page' : undefined}
+                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm ${on ? 'bg-navy-600 text-white' : 'text-navy-200 hover:bg-navy-600 hover:text-white'}`}>
+                <Icon className="h-4 w-4 shrink-0" /> {n.label}
+              </button>
+            );
+          };
+          if (!g.num) {
+            // Overview and Admin are single links, not dropdowns.
+            return (
+              <div key={g.id} className={g.id === 'admin' ? 'mt-3 border-t border-white/10 pt-3' : 'mb-2'}>
+                {items.map(item)}
+              </div>
+            );
+          }
+          const isOpen = open.has(g.id);
+          return (
+            <div key={g.id} className="mb-1">
+              <button onClick={() => toggleGroup(g.id)} aria-expanded={isOpen}
+                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] font-semibold hover:bg-navy-600 ${active.group === g.id ? 'text-white' : 'text-navy-200'}`}>
+                <span className={`h-2 w-2 shrink-0 rounded-full ${g.dot}`} />
+                <span className="text-navy-300">{g.num}</span>
+                <span className="flex-1 truncate whitespace-nowrap">{g.title}</span>
+                <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${isOpen ? '' : '-rotate-90'}`} />
+              </button>
+              {isOpen && (
+                <div className="ml-3.5 border-l border-white/10 pl-1.5">
+                  {items.map(item)}
+                  {g.hint && <p className="px-3 pb-1 pt-1 text-[10px] leading-snug text-navy-300">{g.hint}</p>}
+                </div>
+              )}
             </div>
-            {NAV.filter(n => n.group === g.id).map(n => {
-              const Icon = n.icon;
-              const on = n.id === view;
-              return (
-                <button key={n.id} onClick={() => go(n.id)} aria-current={on ? 'page' : undefined}
-                  className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm ${on ? 'bg-navy-600 text-white' : 'text-navy-200 hover:bg-navy-600 hover:text-white'}`}>
-                  <Icon className="h-4 w-4 shrink-0" /> {n.label}
-                </button>
-              );
-            })}
-            {g.hint && <p className="px-3 pt-1 text-[10px] leading-snug text-navy-300">{g.hint}</p>}
-          </div>
-        ))}
+          );
+        })}
       </nav>
       <div className="border-t border-white/10 pt-3 text-xs">
         <div className="truncate text-navy-200">{session.user.email}</div>
@@ -149,7 +181,7 @@ export default function App() {
 
   return (
     <ToastProvider>
-      <div className="min-h-screen lg:grid lg:grid-cols-[230px_1fr]">
+      <div className="min-h-screen lg:grid lg:grid-cols-[252px_1fr]">
         <aside className="hidden lg:block lg:sticky lg:top-0 lg:h-screen">{sidebar}</aside>
         {menuOpen && (
           <div className="fixed inset-0 z-40 lg:hidden">
@@ -194,7 +226,6 @@ export default function App() {
             {view === 'sources' && <Sources />}
             {view === 'report' && <WeeklyReport />}
             {view === 'competitors' && <Competitors />}
-            {view === 'gtm' && <GtmWorkflows go={go} />}
           </div>
         </main>
       </div>
